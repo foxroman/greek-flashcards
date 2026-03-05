@@ -2,9 +2,9 @@
 """
 Greek Flashcards - Telegram Bot
 Commands:
-    /add greek | russian | Phrase | Translation
-    /list
-    /delete t001
+    /add greek | russian | Phrase in greek | Phrase translation
+    /list      - all teacher words
+    /delete t001 - delete word
 Deploy: Railway.app
 """
 
@@ -37,7 +37,8 @@ def get_next_word_id():
     rows = r.json()
     if not rows:
         return "t001"
-    num = int(rows[0]["id"][1:]) + 1
+    last = rows[0]["id"]
+    num = int(last[1:]) + 1
     return f"t{num:03d}"
 
 def generate_mp3(text):
@@ -49,7 +50,7 @@ def generate_mp3(text):
     r.raise_for_status()
     return r.content
 
-def get_image(word_ru, word_greek):
+def generate_image(word_ru, word_greek):
     for query in [word_ru, word_greek]:
         r = requests.get(
             "https://api.unsplash.com/search/photos",
@@ -60,12 +61,13 @@ def get_image(word_ru, word_greek):
         r.raise_for_status()
         results = r.json().get("results", [])
         if results:
-            img_r = requests.get(results[0]["urls"]["small"], timeout=20)
+            img_url = results[0]["urls"]["small"]
+            img_r = requests.get(img_url, timeout=20)
             img_r.raise_for_status()
             return img_r.content
-    raise Exception("Image not found on Unsplash")
+    raise Exception("Unsplash: image not found")
 
-def upload_file(bucket, filename, data, content_type):
+def upload_to_storage(bucket, filename, data, content_type):
     r = requests.post(
         f"{SUPABASE_URL}/storage/v1/object/{bucket}/{filename}",
         headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}", "Content-Type": content_type, "x-upsert": "true"},
@@ -93,13 +95,13 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Adding {word_id}: {greek} - {ru}...")
     try:
         await update.message.reply_text("Generating word audio...")
-        audio_word_url = upload_file("audio", f"{word_id}_word.mp3", generate_mp3(greek), "audio/mpeg")
+        audio_word_url = upload_to_storage("audio", f"{word_id}_word.mp3", generate_mp3(greek), "audio/mpeg")
         await update.message.reply_text("Generating phrase audio...")
-        audio_phrase_url = upload_file("audio", f"{word_id}_phrase.mp3", generate_mp3(phrase), "audio/mpeg")
-        await update.message.reply_text("Finding image...")
-        image_url = upload_file("images", f"{word_id}.jpg", get_image(ru, greek), "image/jpeg")
+        audio_phrase_url = upload_to_storage("audio", f"{word_id}_phrase.mp3", generate_mp3(phrase), "audio/mpeg")
+        await update.message.reply_text("Finding image on Unsplash...")
+        image_url = upload_to_storage("images", f"{word_id}.jpg", generate_image(ru, greek), "image/jpeg")
         insert_word(word_id, greek, ru, phrase, phrase_ru, audio_word_url, audio_phrase_url, image_url)
-        await update.message.reply_text(f"Done! {word_id}: {greek} - {ru}")
+        await update.message.reply_text(f"Word added!\n\nID: {word_id}\n{greek} - {ru}\n{phrase}\n{phrase_ru}")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
@@ -110,10 +112,7 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("No teacher words yet.")
         return
     lines = [f"{w['id']} {w['greek']} - {w['ru']} ({w['added_date']})" for w in words]
-    await update.message.reply_text(f"Teacher words ({len(words)}):
-
-" + "
-".join(lines))
+    await update.message.reply_text(f"Teacher words ({len(words)}):\n\n" + "\n".join(lines))
 
 async def cmd_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
@@ -124,10 +123,7 @@ async def cmd_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Deleted {word_id}" if r.status_code in (200, 204) else f"Error: {r.text}")
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Greek Flashcards Bot
-/add greek | russian | phrase | translation
-/list
-/delete t001")
+    await update.message.reply_text("Greek Flashcards Bot\n\n/add greek | russian | phrase | translation\n/list\n/delete t001")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
