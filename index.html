@@ -854,8 +854,9 @@ document.getElementById('restartBtn').addEventListener('click', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Load initial stats (will show 0 until user is selected)
-loadCategoryStats();
-</script>
+if (typeof supabase !== 'undefined') {
+    loadCategoryStats();
+}
 
 </body>
 </html>
