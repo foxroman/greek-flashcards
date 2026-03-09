@@ -16,7 +16,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 TELEGRAM_TOKEN     = os.environ["TELEGRAM_TOKEN"]
 ELEVENLABS_API_KEY = os.environ["ELEVENLABS_API_KEY"]
-VOICE_ID           = "JrrE7QTGDmQKQuUnqk7H"
+VOICE_ID           = "Xb7hH8MSUJpSbSDYk0k2"
 MODEL_ID           = "eleven_multilingual_v2"
 SUPABASE_URL       = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
