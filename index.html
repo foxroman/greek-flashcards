@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greek Flashcards — Учим греческий</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=GFS+Didot&family=Playfair+Display:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
@@ -20,7 +20,7 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'IBM Plex Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             color: var(--text-dark);
             min-height: 100vh;
@@ -44,7 +44,7 @@
             background: linear-gradient(90deg, var(--aegean-blue) 0%, var(--mediterranean) 50%, var(--sunset-orange) 100%);
         }
         .header h1 {
-            font-family: 'Cormorant Garamond', serif;
+            font-family: 'Playfair Display', serif;
             font-size: 3.5em;
             font-weight: 700;
             color: var(--aegean-blue);
@@ -69,7 +69,7 @@
             border-radius: 50px;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: 'IBM Plex Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
         }
         .user-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,119,190,0.2); }
         .user-btn.active { background: var(--aegean-blue); color: white; transform: scale(1.05); }
@@ -112,7 +112,7 @@
         .category-card.teacher { --accent: var(--gold-accent); }
         .category-icon { font-size: 3em; margin-bottom: 15px; }
         .category-title {
-            font-family: 'Cormorant Garamond', serif;
+            font-family: 'Playfair Display', serif;
             font-size: 1.8em; font-weight: 700;
             color: var(--text-dark); margin-bottom: 10px;
         }
@@ -150,9 +150,10 @@
             position: relative;
         }
         .word-greek {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 4em; font-weight: 700;
+            font-family: 'GFS Didot', 'Playfair Display', serif;
+            font-size: 4em; font-weight: 400;
             color: var(--aegean-blue); margin-bottom: 20px; text-align: center;
+            letter-spacing: 0.02em;
         }
         .word-translit { font-size: 1.5em; color: #888; margin-bottom: 30px; font-style: italic; }
         .audio-btn {
@@ -202,7 +203,7 @@
         }
         .completion.visible { display: block; animation: fadeIn 0.5s ease; }
         .completion h2 {
-            font-family: 'Cormorant Garamond', serif;
+            font-family: 'Playfair Display', serif;
             font-size: 3em; color: var(--aegean-blue); margin-bottom: 20px;
         }
         .completion-emoji { font-size: 5em; margin-bottom: 20px; }
@@ -471,6 +472,14 @@ function showNextWord() {
     document.getElementById('answer').classList.remove('visible');
     document.getElementById('ratingButtons').classList.remove('visible');
     document.getElementById('showAnswerBtn').style.display = 'block';
+
+    // Автовоспроизведение аудио через 300мс (небольшая задержка для UX)
+    if (currentWord.audio_word_url) {
+        setTimeout(() => {
+            new Audio(currentWord.audio_word_url).play()
+                .catch(() => {}); // тихо игнорируем если браузер блокирует
+        }, 300);
+    }
 }
 
 // ═══════════════════════════════════════════════════════
