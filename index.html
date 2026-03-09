@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greek Flashcards — Учим греческий</title>
-    <link href="https://fonts.googleapis.com/css2?family=GFS+Didot&family=Playfair+Display:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
@@ -44,7 +44,7 @@
             background: linear-gradient(90deg, var(--aegean-blue) 0%, var(--mediterranean) 50%, var(--sunset-orange) 100%);
         }
         .header h1 {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Noto Serif', serif;
             font-size: 3.5em;
             font-weight: 700;
             color: var(--aegean-blue);
@@ -112,7 +112,7 @@
         .category-card.teacher { --accent: var(--gold-accent); }
         .category-icon { font-size: 3em; margin-bottom: 15px; }
         .category-title {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Noto Serif', serif;
             font-size: 1.8em; font-weight: 700;
             color: var(--text-dark); margin-bottom: 10px;
         }
@@ -150,12 +150,13 @@
             position: relative;
         }
         .word-greek {
-            font-family: 'GFS Didot', 'Playfair Display', serif;
-            font-size: 4em; font-weight: 400;
+            font-family: 'Noto Serif', serif;
+            font-size: 4em; font-weight: 700;
             color: var(--aegean-blue); margin-bottom: 20px; text-align: center;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.05em;
+            text-transform: capitalize;
         }
-        .word-translit { font-size: 1.5em; color: #888; margin-bottom: 30px; font-style: italic; }
+        .word-translit { font-size: 1.5em; color: #888; margin-bottom: 30px; font-style: italic; font-family: 'Noto Serif', serif; }
         .audio-btn {
             width: 70px; height: 70px; border-radius: 50%;
             background: linear-gradient(135deg, var(--aegean-blue), var(--mediterranean));
@@ -203,7 +204,7 @@
         }
         .completion.visible { display: block; animation: fadeIn 0.5s ease; }
         .completion h2 {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Noto Serif', serif;
             font-size: 3em; color: var(--aegean-blue); margin-bottom: 20px;
         }
         .completion-emoji { font-size: 5em; margin-bottom: 20px; }
