@@ -1,628 +1,861 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Greek Flashcards</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', sans-serif;
-    background: #1a1a2e;
-    color: #eee;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  /* ── LOADING ── */
-  #loading-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 16px;
-    color: #a8daff;
-  }
-  .spinner {
-    width: 48px; height: 48px;
-    border: 4px solid #2a2a4a;
-    border-top-color: #a8daff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ── LOGIN ── */
-  #login-screen {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 16px;
-  }
-  #login-screen h1 { font-size: 2rem; color: #a8daff; }
-  #login-screen p { color: #aaa; }
-  .user-btn {
-    padding: 14px 40px;
-    font-size: 1.2rem;
-    border: 2px solid #a8daff;
-    background: transparent;
-    color: #a8daff;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .user-btn:hover { background: #a8daff; color: #1a1a2e; }
-
-  /* ── APP ── */
-  #app { display: none; width: 100%; max-width: 480px; padding: 16px; }
-
-  /* ── HEADER ── */
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0 16px;
-    font-size: 0.85rem;
-    color: #aaa;
-  }
-  .header .user { color: #a8daff; font-weight: bold; }
-  .header button {
-    background: none; border: 1px solid #555; color: #aaa;
-    padding: 4px 10px; border-radius: 6px; cursor: pointer;
-  }
-
-  /* ── SECTION TABS ── */
-  .section-tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .tab-btn {
-    flex: 1;
-    padding: 8px;
-    border-radius: 10px;
-    border: 2px solid #2a2a4a;
-    background: #2a2a4a;
-    color: #aaa;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-    position: relative;
-  }
-  .tab-btn.active {
-    border-color: #a8daff;
-    color: #a8daff;
-    background: #16213e;
-  }
-  .tab-badge {
-    display: inline-block;
-    background: #a8daff;
-    color: #1a1a2e;
-    border-radius: 10px;
-    padding: 1px 7px;
-    font-size: 0.7rem;
-    font-weight: bold;
-    margin-left: 5px;
-  }
-
-  /* ── PROGRESS BAR ── */
-  .progress-wrap {
-    background: #2a2a4a;
-    border-radius: 8px;
-    height: 8px;
-    margin-bottom: 16px;
-    overflow: hidden;
-  }
-  .progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #4fc3f7, #81c784);
-    transition: width 0.5s;
-  }
-
-  /* ── CARD ── */
-  .card {
-    background: #16213e;
-    border-radius: 20px;
-    padding: 24px;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-  }
-  .card-image {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    border-radius: 12px;
-    margin-bottom: 16px;
-    background: #2a2a4a;
-  }
-  .card-image-placeholder {
-    width: 100%;
-    height: 200px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-    background: #2a2a4a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3rem;
-  }
-  .greek-word {
-    font-size: 2.8rem;
-    font-weight: bold;
-    color: #fff;
-    letter-spacing: 2px;
-  }
-  .translit {
-    font-size: 1rem;
-    color: #7ec8e3;
-    margin: 4px 0 12px;
-    font-style: italic;
-  }
-  .audio-btn {
-    background: none;
-    border: none;
-    font-size: 1.6rem;
-    cursor: pointer;
-    margin: 0 6px;
-    transition: transform 0.15s;
-  }
-  .audio-btn:hover { transform: scale(1.2); }
-  .audio-btn:active { transform: scale(0.95); }
-
-  /* ── ANSWER ── */
-  #answer-section { display: none; margin-top: 16px; }
-  .translation {
-    font-size: 1.6rem;
-    font-weight: bold;
-    color: #81c784;
-    margin-bottom: 12px;
-  }
-  .phrase-block {
-    background: #0f3460;
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 16px;
-    text-align: left;
-  }
-  .phrase-greek { font-size: 1rem; color: #a8daff; margin-bottom: 4px; }
-  .phrase-ru    { font-size: 0.85rem; color: #aaa; }
-  .sm2-info     { font-size: 0.75rem; color: #555; margin-bottom: 16px; }
-
-  /* ── BUTTONS ── */
-  .reveal-btn {
-    width: 100%;
-    padding: 14px;
-    font-size: 1.1rem;
-    background: #0f3460;
-    border: 2px solid #a8daff;
-    color: #a8daff;
-    border-radius: 14px;
-    cursor: pointer;
-    margin-top: 16px;
-    transition: all 0.2s;
-  }
-  .reveal-btn:hover { background: #1a4a8a; }
-
-  .grade-row { display: flex; gap: 6px; margin-top: 8px; }
-  .grade-btn {
-    flex: 1;
-    padding: 10px 2px;
-    border: none;
-    border-radius: 10px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: transform 0.1s, opacity 0.1s;
-  }
-  .grade-btn:hover  { transform: translateY(-2px); opacity: 0.9; }
-  .grade-btn:active { transform: translateY(0); }
-  .g0 { background: #c0392b; color: #fff; }
-  .g1 { background: #e67e22; color: #fff; }
-  .g2 { background: #f1c40f; color: #222; }
-  .g3 { background: #27ae60; color: #fff; }
-  .g4 { background: #2980b9; color: #fff; }
-  .g5 { background: #8e44ad; color: #fff; }
-
-  /* ── DONE SCREEN ── */
-  #done-screen {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 16px;
-    text-align: center;
-    padding: 24px;
-  }
-  #done-screen h2 { font-size: 2rem; color: #81c784; }
-  #done-screen p  { color: #aaa; max-width: 320px; }
-  #done-screen button {
-    padding: 12px 32px;
-    border-radius: 12px;
-    border: 2px solid #a8daff;
-    background: transparent;
-    color: #a8daff;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  /* ── EMPTY STATE ── */
-  #empty-screen {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 48px 24px;
-    gap: 12px;
-    text-align: center;
-    color: #aaa;
-  }
-  #empty-screen h3 { color: #a8daff; font-size: 1.3rem; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Greek Flashcards — Учим греческий</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --aegean-blue: #0077BE;
+            --mediterranean: #1E90FF;
+            --sunset-orange: #FF6B35;
+            --olive-green: #6B8E23;
+            --marble-white: #F8F9FA;
+            --stone-gray: #2C3E50;
+            --gold-accent: #D4AF37;
+            --text-dark: #1a1a1a;
+            --bg-light: #FEFEFE;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        /* Header with Greek aesthetic */
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                var(--aegean-blue) 0%, 
+                var(--mediterranean) 50%, 
+                var(--sunset-orange) 100%);
+        }
+        
+        .header h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 3.5em;
+            font-weight: 700;
+            color: var(--aegean-blue);
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            color: var(--stone-gray);
+            opacity: 0.8;
+        }
+        
+        /* User Selection */
+        .user-select {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .user-btn {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: 3px solid var(--aegean-blue);
+            background: white;
+            color: var(--aegean-blue);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+        
+        .user-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 119, 190, 0.2);
+        }
+        
+        .user-btn.active {
+            background: var(--aegean-blue);
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        /* Category Grid */
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto 40px;
+        }
+        
+        .category-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .category-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--accent);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .category-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+            border-color: var(--accent);
+        }
+        
+        .category-card.verbs { --accent: var(--aegean-blue); }
+        .category-card.nouns { --accent: var(--olive-green); }
+        .category-card.numbers { --accent: var(--sunset-orange); }
+        .category-card.teacher { --accent: var(--gold-accent); }
+        
+        .category-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .category-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.8em;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 10px;
+        }
+        
+        .category-count {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .category-progress {
+            width: 100%;
+            height: 8px;
+            background: #E8E8E8;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        
+        .category-progress-bar {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        /* Flashcard Container */
+        .flashcard-container {
+            max-width: 700px;
+            margin: 0 auto;
+            display: none;
+        }
+        
+        .flashcard-container.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .progress-info {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .progress-info span {
+            font-size: 1.1em;
+            color: var(--stone-gray);
+        }
+        
+        .back-btn {
+            padding: 10px 25px;
+            background: var(--marble-white);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .back-btn:hover {
+            background: #e0e0e0;
+            transform: translateX(-3px);
+        }
+        
+        /* Flashcard */
+        .flashcard {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            position: relative;
+            perspective: 1000px;
+        }
+        
+        .word-greek {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 4em;
+            font-weight: 700;
+            color: var(--aegean-blue);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .word-translit {
+            font-size: 1.5em;
+            color: #888;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        .audio-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--aegean-blue), var(--mediterranean));
+            border: none;
+            color: white;
+            font-size: 2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0, 119, 190, 0.3);
+            margin-bottom: 30px;
+        }
+        
+        .audio-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(0, 119, 190, 0.4);
+        }
+        
+        .audio-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .show-answer-btn {
+            padding: 15px 50px;
+            font-size: 1.2em;
+            background: var(--sunset-orange);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+        
+        .show-answer-btn:hover {
+            background: #ff5722;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.3);
+        }
+        
+        .answer {
+            text-align: center;
+            margin-top: 30px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .answer.visible {
+            display: block;
+        }
+        
+        .word-russian {
+            font-size: 2em;
+            font-weight: 600;
+            color: var(--stone-gray);
+            margin-bottom: 20px;
+        }
+        
+        .phrase {
+            font-size: 1.3em;
+            color: var(--text-dark);
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+        
+        .phrase-ru {
+            font-size: 1.1em;
+            color: #666;
+        }
+        
+        /* Rating Buttons */
+        .rating-buttons {
+            display: none;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        .rating-buttons.visible {
+            display: grid;
+        }
+        
+        .rating-btn {
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .rating-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .rating-btn[data-rating="0"] { border-color: #e74c3c; color: #e74c3c; }
+        .rating-btn[data-rating="1"] { border-color: #e67e22; color: #e67e22; }
+        .rating-btn[data-rating="2"] { border-color: #f39c12; color: #f39c12; }
+        .rating-btn[data-rating="3"] { border-color: #f1c40f; color: #f1c40f; }
+        .rating-btn[data-rating="4"] { border-color: #2ecc71; color: #2ecc71; }
+        .rating-btn[data-rating="5"] { border-color: #27ae60; color: #27ae60; }
+        
+        .rating-btn:hover {
+            background: currentColor;
+            color: white;
+        }
+        
+        /* Completion Screen */
+        .completion {
+            text-align: center;
+            padding: 60px 40px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .completion.visible {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .completion h2 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 3em;
+            color: var(--aegean-blue);
+            margin-bottom: 20px;
+        }
+        
+        .completion-emoji {
+            font-size: 5em;
+            margin-bottom: 20px;
+        }
+        
+        .restart-btn {
+            padding: 15px 50px;
+            font-size: 1.2em;
+            background: var(--aegean-blue);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        
+        .restart-btn:hover {
+            background: var(--mediterranean);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 119, 190, 0.3);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5em;
+            }
+            
+            .word-greek {
+                font-size: 3em;
+            }
+            
+            .categories {
+                grid-template-columns: 1fr;
+            }
+            
+            .rating-buttons {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
 </head>
 <body>
 
-<!-- LOADING -->
-<div id="loading-screen">
-  <div class="spinner"></div>
-  <p>Загружаем слова...</p>
+<!-- Header -->
+<div class="header">
+    <h1>🇬🇷 Ελληνικά</h1>
+    <p>Учим греческий с интервальным повторением</p>
 </div>
 
-<!-- LOGIN -->
-<div id="login-screen">
-  <h1>🇬🇷 Greek Flashcards</h1>
-  <p>Выберите пользователя</p>
-  <button class="user-btn" onclick="login('roman')">👤 Роман</button>
-  <button class="user-btn" onclick="login('olga')">👤 Ольга</button>
+<!-- User Selection -->
+<div class="user-select" id="userSelect">
+    <button class="user-btn" data-user="roman">Роман</button>
+    <button class="user-btn" data-user="olga">Ольга</button>
 </div>
 
-<!-- APP -->
-<div id="app">
-  <div class="header">
-    <span class="user" id="header-user"></span>
-    <span id="header-stats">0/0</span>
-    <button onclick="logout()">Выйти</button>
-  </div>
-
-  <!-- Вкладки разделов -->
-  <div class="section-tabs">
-    <button class="tab-btn active" id="tab-top500" onclick="switchSection('top500')">
-      📚 Топ-500 <span class="tab-badge" id="badge-top500">0</span>
-    </button>
-    <button class="tab-btn" id="tab-teacher" onclick="switchSection('teacher')">
-      👩‍🏫 От учителя <span class="tab-badge" id="badge-teacher">0</span>
-    </button>
-  </div>
-
-  <div class="progress-wrap">
-    <div class="progress-bar" id="progress-bar" style="width:0%"></div>
-  </div>
-
-  <!-- КАРТОЧКА -->
-  <div class="card" id="card">
-    <div id="img-wrap">
-      <div class="card-image-placeholder">🖼️</div>
+<!-- Categories -->
+<div class="categories" id="categories">
+    <div class="category-card verbs" data-category="verb">
+        <div class="category-icon">🏃</div>
+        <div class="category-title">Глаголы</div>
+        <div class="category-count"><span id="verb-count">0</span> слов</div>
+        <div class="category-progress">
+            <div class="category-progress-bar" id="verb-progress" style="width: 0%"></div>
+        </div>
     </div>
-
-    <div class="greek-word" id="word-greek"></div>
-    <div class="translit"   id="word-translit"></div>
-
-    <div>
-      <button class="audio-btn" id="btn-word-audio" title="Произношение слова">🔊</button>
+    
+    <div class="category-card nouns" data-category="noun">
+        <div class="category-icon">📦</div>
+        <div class="category-title">Существительные</div>
+        <div class="category-count"><span id="noun-count">0</span> слов</div>
+        <div class="category-progress">
+            <div class="category-progress-bar" id="noun-progress" style="width: 0%"></div>
+        </div>
     </div>
-
-    <button class="reveal-btn" onclick="revealAnswer()">Показать перевод</button>
-
-    <div id="answer-section">
-      <div class="translation" id="word-ru"></div>
-
-      <div class="phrase-block" id="phrase-block">
-        <div class="phrase-greek" id="phrase-greek"></div>
-        <div class="phrase-ru"    id="phrase-ru"></div>
-      </div>
-
-      <div class="sm2-info" id="sm2-info"></div>
-
-      <div class="grade-row">
-        <button class="grade-btn g0" onclick="grade(0)">0<br>Нет</button>
-        <button class="grade-btn g1" onclick="grade(1)">1<br>Плохо</button>
-        <button class="grade-btn g2" onclick="grade(2)">2<br>Сложно</button>
-        <button class="grade-btn g3" onclick="grade(3)">3<br>OK</button>
-        <button class="grade-btn g4" onclick="grade(4)">4<br>Хорошо</button>
-        <button class="grade-btn g5" onclick="grade(5)">5<br>Отлично</button>
-      </div>
+    
+    <div class="category-card numbers" data-category="number">
+        <div class="category-icon">🔢</div>
+        <div class="category-title">Числа</div>
+        <div class="category-count"><span id="number-count">0</span> слов</div>
+        <div class="category-progress">
+            <div class="category-progress-bar" id="number-progress" style="width: 0%"></div>
+        </div>
     </div>
-  </div>
-
-  <!-- Пустой раздел -->
-  <div id="empty-screen">
-    <h3>🎉 Всё готово!</h3>
-    <p>В этом разделе нет слов на сегодня.</p>
-  </div>
+    
+    <div class="category-card teacher" data-category="teacher">
+        <div class="category-icon">👨‍🏫</div>
+        <div class="category-title">От учителя</div>
+        <div class="category-count"><span id="teacher-count">0</span> слов</div>
+        <div class="category-progress">
+            <div class="category-progress-bar" id="teacher-progress" style="width: 0%"></div>
+        </div>
+    </div>
 </div>
 
-<!-- DONE -->
-<div id="done-screen">
-  <div style="font-size:4rem">🎉</div>
-  <h2>Отлично!</h2>
-  <p>Все слова на сегодня повторены. Возвращайся завтра!</p>
-  <button onclick="logout()">На главную</button>
+<!-- Flashcard Container -->
+<div class="flashcard-container" id="flashcardContainer">
+    <div class="progress-info">
+        <button class="back-btn" id="backBtn">← Назад</button>
+        <span id="progressText">Слово 1 из 10</span>
+    </div>
+    
+    <div class="flashcard" id="flashcard">
+        <div class="word-greek" id="wordGreek">φωτογραφία</div>
+        <div class="word-translit" id="wordTranslit">fotografia</div>
+        
+        <button class="audio-btn" id="audioBtn">🔊</button>
+        
+        <button class="show-answer-btn" id="showAnswerBtn">Показать перевод</button>
+        
+        <div class="answer" id="answer">
+            <div class="word-russian" id="wordRussian">фотография</div>
+            <div class="phrase" id="wordPhrase">Βλέπω μια φωτογραφία.</div>
+            <div class="phrase-ru" id="wordPhraseRu">Я вижу фотографию.</div>
+        </div>
+        
+        <div class="rating-buttons" id="ratingButtons">
+            <button class="rating-btn" data-rating="0">0<br>😵</button>
+            <button class="rating-btn" data-rating="1">1<br>😓</button>
+            <button class="rating-btn" data-rating="2">2<br>😕</button>
+            <button class="rating-btn" data-rating="3">3<br>😐</button>
+            <button class="rating-btn" data-rating="4">4<br>🙂</button>
+            <button class="rating-btn" data-rating="5">5<br>🎯</button>
+        </div>
+    </div>
+    
+    <div class="completion" id="completion">
+        <div class="completion-emoji">🎉</div>
+        <h2>Отлично!</h2>
+        <p>Вы завершили повторение</p>
+        <button class="restart-btn" id="restartBtn">Вернуться к категориям</button>
+    </div>
 </div>
 
 <script>
-// ── SUPABASE ──────────────────────────────────────────────────────────────────
-const { createClient } = supabase;
-const db = createClient(
-  'https://ykqpuaulgqymcpmtiuoc.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcXB1YXVsZ3F5bWNwbXRpdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTMwNjksImV4cCI6MjA4ODIyOTA2OX0.BCyRLu4af1IKpNPUmJX8F0m0gEyrvlsHEKw3jWvcIUM'
-);
+// ═══════════════════════════════════════════════════════════════════════════
+// SUPABASE INITIALIZATION
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── СОСТОЯНИЕ ─────────────────────────────────────────────────────────────────
-let userId   = null;
-let allWords = { top500: [], teacher: [] };
-let section  = 'top500';   // текущий раздел
-let queue    = [];
-let idx      = 0;
-let progress = {};
+const SUPABASE_URL = 'https://ykqpuaulgqymcpmtiuoc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcXB1YXVsZ3F5bWNwbXRpdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTMwNjksImV4cCI6MjA4ODIyOTA2OX0.kxLqYdLW8vYVqL6hCH_Q0kBWQqhKyFjHOuDIFhJcGhE';
 
-// ── ЗАГРУЗКА СЛОВ ─────────────────────────────────────────────────────────────
-async function loadWords() {
-  const { data, error } = await db
-    .from('words')
-    .select('*')
-    .order('id', { ascending: true });
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  if (error) { console.error('loadWords error:', error); return; }
+// ═══════════════════════════════════════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════════════════════════════════════
 
-  allWords.top500  = (data || []).filter(w => w.category === 'top500');
-  allWords.teacher = (data || []).filter(w => w.category === 'teacher');
-}
+let currentUser = null;
+let currentCategory = null;
+let wordsQueue = [];
+let currentWordIndex = 0;
+let currentWord = null;
 
-// ── ЗАГРУЗКА ПРОГРЕССА ────────────────────────────────────────────────────────
-async function loadProgress() {
-  const { data, error } = await db
-    .from('progress')
-    .select('*')
-    .eq('user_id', userId);
+// ═══════════════════════════════════════════════════════════════════════════
+// USER SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
 
-  if (error) { console.error('loadProgress error:', error); return; }
-  progress = {};
-  for (const row of (data || [])) {
-    progress[row.word_id] = {
-      interval_days: row.interval_days,
-      ease_factor:   row.ease_factor,
-      repetitions:   row.repetitions,
-      due_date:      row.due_date,
-    };
-  }
-}
-
-// ── ИНИЦИАЛИЗАЦИЯ ─────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  await loadWords();
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display   = 'flex';
+document.querySelectorAll('.user-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        currentUser = e.target.dataset.user;
+        
+        document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        await loadCategoryStats();
+    });
 });
 
-// ── ЛОГИН ─────────────────────────────────────────────────────────────────────
-async function login(name) {
-  userId = name;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('loading-screen').style.display = 'flex';
-  document.getElementById('loading-screen').querySelector('p').textContent = 'Загружаем прогресс...';
+// ═══════════════════════════════════════════════════════════════════════════
+// LOAD CATEGORY STATISTICS
+// ═══════════════════════════════════════════════════════════════════════════
 
-  await loadProgress();
-  updateBadges();
-
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('header-user').textContent = name === 'roman' ? '👤 Роман' : '👤 Ольга';
-
-  switchSection('top500');
-}
-
-function logout() {
-  userId   = null;
-  progress = {};
-  queue    = [];
-  idx      = 0;
-  document.getElementById('login-screen').style.display  = 'flex';
-  document.getElementById('app').style.display           = 'none';
-  document.getElementById('done-screen').style.display   = 'none';
-}
-
-// ── РАЗДЕЛЫ ───────────────────────────────────────────────────────────────────
-function switchSection(sec) {
-  section = sec;
-
-  document.getElementById('tab-top500').classList.toggle('active', sec === 'top500');
-  document.getElementById('tab-teacher').classList.toggle('active', sec === 'teacher');
-
-  buildQueue();
-
-  if (queue.length === 0) {
-    document.getElementById('card').style.display         = 'none';
-    document.getElementById('empty-screen').style.display = 'flex';
-    document.getElementById('progress-bar').style.width   = '0%';
-    document.getElementById('header-stats').textContent   = '0/0';
-  } else {
-    document.getElementById('card').style.display         = 'block';
-    document.getElementById('empty-screen').style.display = 'none';
-    showCard();
-  }
-}
-
-function updateBadges() {
-  const t = today();
-  const count = (words) => words.filter(w => {
-    const p = progress[w.id];
-    return !p || p.due_date <= t;
-  }).length;
-
-  document.getElementById('badge-top500').textContent  = count(allWords.top500);
-  document.getElementById('badge-teacher').textContent = count(allWords.teacher);
-}
-
-// ── ОЧЕРЕДЬ ───────────────────────────────────────────────────────────────────
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function buildQueue() {
-  const t     = today();
-  const words = allWords[section] || [];
-
-  queue = words.filter(w => {
-    const p = progress[w.id];
-    return !p || p.due_date <= t;
-  });
-
-  queue.sort((a, b) => {
-    const pa = progress[a.id], pb = progress[b.id];
-    if (!pa && !pb) return 0;
-    if (!pa) return 1;
-    if (!pb) return -1;
-    return pa.due_date.localeCompare(pb.due_date);
-  });
-
-  idx = 0;
-}
-
-// ── SM-2 ──────────────────────────────────────────────────────────────────────
-function sm2(p, q) {
-  let { interval_days = 1, ease_factor = 2.5, repetitions = 0 } = p || {};
-  if (q < 3) {
-    repetitions   = 0;
-    interval_days = 1;
-  } else {
-    if      (repetitions === 0) interval_days = 1;
-    else if (repetitions === 1) interval_days = 6;
-    else                        interval_days = Math.round(interval_days * ease_factor);
-    repetitions++;
-    ease_factor = Math.max(1.3, ease_factor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
-  }
-  const due = new Date();
-  due.setDate(due.getDate() + interval_days);
-  return {
-    interval_days,
-    ease_factor: Math.round(ease_factor * 100) / 100,
-    repetitions,
-    due_date: due.toISOString().slice(0, 10),
-  };
-}
-
-// ── СОХРАНЕНИЕ ────────────────────────────────────────────────────────────────
-async function saveProgress(wordId, newP) {
-  progress[wordId] = newP;
-  await db.from('progress').upsert(
-    { user_id: userId, word_id: wordId, ...newP },
-    { onConflict: 'user_id,word_id' }
-  );
-}
-
-// ── ПОКАЗ КАРТОЧКИ ────────────────────────────────────────────────────────────
-function showCard() {
-  if (idx >= queue.length) {
-    // Проверяем есть ли что-то в другом разделе
-    const otherSection = section === 'top500' ? 'teacher' : 'top500';
-    const otherWords   = allWords[otherSection] || [];
-    const t            = today();
-    const otherDue     = otherWords.filter(w => {
-      const p = progress[w.id];
-      return !p || p.due_date <= t;
-    }).length;
-
-    if (otherDue > 0) {
-      document.getElementById('app').style.display        = 'none';
-      document.getElementById('done-screen').style.display = 'flex';
-      document.getElementById('done-screen').querySelector('p').textContent =
-        `Все слова в этом разделе повторены! Ещё ${otherDue} слов в другом разделе.`;
-    } else {
-      document.getElementById('app').style.display        = 'none';
-      document.getElementById('done-screen').style.display = 'flex';
-      document.getElementById('done-screen').querySelector('p').textContent =
-        'Все слова на сегодня повторены. Возвращайся завтра!';
+async function loadCategoryStats() {
+    const categories = ['verb', 'noun', 'number', 'teacher'];
+    
+    for (const cat of categories) {
+        // Total words in category
+        const { data: words, error: wordsError } = await supabase
+            .from('words')
+            .select('id')
+            .eq('category', cat);
+        
+        if (wordsError) {
+            console.error(`Error loading ${cat}:`, wordsError);
+            continue;
+        }
+        
+        const total = words.length;
+        document.getElementById(`${cat}-count`).textContent = total;
+        
+        // Progress for this user
+        if (currentUser && total > 0) {
+            const { data: progress, error: progressError } = await supabase
+                .from('progress')
+                .select('word_id')
+                .eq('user_id', currentUser)
+                .in('word_id', words.map(w => w.id));
+            
+            if (!progressError) {
+                const learned = progress.length;
+                const percent = Math.round((learned / total) * 100);
+                document.getElementById(`${cat}-progress`).style.width = `${percent}%`;
+            }
+        }
     }
-    return;
-  }
-
-  const w = queue[idx];
-  const p = progress[w.id];
-
-  // Прячем ответ
-  document.getElementById('answer-section').style.display = 'none';
-
-  // Картинка
-  const imgWrap = document.getElementById('img-wrap');
-  imgWrap.innerHTML = '';
-  if (w.image_url) {
-    const img = new Image();
-    img.src       = w.image_url;
-    img.className = 'card-image';
-    img.onerror   = () => { imgWrap.innerHTML = '<div class="card-image-placeholder">🖼️</div>'; };
-    img.onload    = () => { imgWrap.innerHTML = ''; imgWrap.appendChild(img); };
-    // Показываем плейсхолдер пока грузится
-    imgWrap.innerHTML = '<div class="card-image-placeholder">⏳</div>';
-  } else {
-    imgWrap.innerHTML = '<div class="card-image-placeholder">🖼️</div>';
-  }
-
-  // Слово
-  document.getElementById('word-greek').textContent   = w.greek || '';
-  document.getElementById('word-translit').textContent = w.translit ? `[${w.translit}]` : '';
-  document.getElementById('word-ru').textContent       = w.ru || '';
-
-  // Фраза
-  const phraseBlock = document.getElementById('phrase-block');
-  if (w.phrase) {
-    document.getElementById('phrase-greek').textContent = w.phrase;
-    document.getElementById('phrase-ru').textContent    = w.phrase_ru || '';
-    phraseBlock.style.display = 'block';
-  } else {
-    phraseBlock.style.display = 'none';
-  }
-
-  // SM-2 инфо
-  document.getElementById('sm2-info').textContent = p
-    ? `Интервал: ${p.interval_days}д | Повторений: ${p.repetitions} | EF: ${p.ease_factor}`
-    : 'Новое слово';
-
-  // Аудио
-  const audioBtn = document.getElementById('btn-word-audio');
-  if (w.audio_word_url) {
-    audioBtn.style.display = 'inline';
-    audioBtn.onclick = () => new Audio(w.audio_word_url).play();
-  } else {
-    audioBtn.style.display = 'none';
-  }
-
-  // Прогресс
-  const pct = queue.length > 0 ? (idx / queue.length) * 100 : 0;
-  document.getElementById('progress-bar').style.width   = pct + '%';
-  document.getElementById('header-stats').textContent   = `${idx}/${queue.length}`;
 }
 
-function revealAnswer() {
-  document.getElementById('answer-section').style.display = 'block';
-  // Автопроигрыш
-  const btn = document.getElementById('btn-word-audio');
-  if (btn.style.display !== 'none') btn.click();
+// ═══════════════════════════════════════════════════════════════════════════
+// CATEGORY SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.querySelectorAll('.category-card').forEach(card => {
+    card.addEventListener('click', async (e) => {
+        if (!currentUser) {
+            alert('Сначала выберите пользователя!');
+            return;
+        }
+        
+        currentCategory = e.currentTarget.dataset.category;
+        await startLearning();
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// START LEARNING SESSION
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function startLearning() {
+    // Get words for this category due today
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data: dueProgress, error: dueError } = await supabase
+        .from('progress')
+        .select('word_id, interval_days, ease_factor, repetitions')
+        .eq('user_id', currentUser)
+        .lte('due_date', today);
+    
+    // Get all words in category
+    const { data: allWords, error: wordsError } = await supabase
+        .from('words')
+        .select('*')
+        .eq('category', currentCategory);
+    
+    if (wordsError) {
+        console.error('Error loading words:', wordsError);
+        return;
+    }
+    
+    // Find words due today or new words (not in progress)
+    const dueWordIds = new Set((dueProgress || []).map(p => p.word_id));
+    const progressWordIds = new Set();
+    
+    // Get all progress for this user in this category
+    const { data: userProgress } = await supabase
+        .from('progress')
+        .select('word_id')
+        .eq('user_id', currentUser)
+        .in('word_id', allWords.map(w => w.id));
+    
+    (userProgress || []).forEach(p => progressWordIds.add(p.word_id));
+    
+    // Priority: due words, then new words
+    wordsQueue = [
+        ...allWords.filter(w => dueWordIds.has(w.id)),
+        ...allWords.filter(w => !progressWordIds.has(w.id))
+    ];
+    
+    if (wordsQueue.length === 0) {
+        alert('Все слова выучены! Возвращайтесь завтра.');
+        return;
+    }
+    
+    // Shuffle queue
+    wordsQueue.sort(() => Math.random() - 0.5);
+    
+    currentWordIndex = 0;
+    
+    // Show flashcard container
+    document.getElementById('categories').style.display = 'none';
+    document.getElementById('userSelect').style.display = 'none';
+    document.getElementById('flashcardContainer').classList.add('active');
+    document.getElementById('completion').classList.remove('visible');
+    
+    showNextWord();
 }
 
-async function grade(q) {
-  const w  = queue[idx];
-  const np = sm2(progress[w.id] || null, q);
-  await saveProgress(w.id, np);
-  updateBadges();
-  idx++;
-  showCard();
+// ═══════════════════════════════════════════════════════════════════════════
+// SHOW NEXT WORD
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showNextWord() {
+    if (currentWordIndex >= wordsQueue.length) {
+        showCompletion();
+        return;
+    }
+    
+    currentWord = wordsQueue[currentWordIndex];
+    
+    // Update UI
+    document.getElementById('progressText').textContent = 
+        `Слово ${currentWordIndex + 1} из ${wordsQueue.length}`;
+    
+    document.getElementById('wordGreek').textContent = currentWord.greek;
+    document.getElementById('wordTranslit').textContent = currentWord.translit || '';
+    document.getElementById('wordRussian').textContent = currentWord.ru;
+    
+    // Phrase (только для глаголов и существительных, НЕ для чисел)
+    if (currentWord.phrase && currentWord.category !== 'number') {
+        document.getElementById('wordPhrase').textContent = currentWord.phrase;
+        document.getElementById('wordPhraseRu').textContent = currentWord.phrase_ru;
+        document.getElementById('wordPhrase').style.display = 'block';
+        document.getElementById('wordPhraseRu').style.display = 'block';
+    } else {
+        document.getElementById('wordPhrase').style.display = 'none';
+        document.getElementById('wordPhraseRu').style.display = 'none';
+    }
+    
+    // Reset state
+    document.getElementById('answer').classList.remove('visible');
+    document.getElementById('ratingButtons').classList.remove('visible');
+    document.getElementById('showAnswerBtn').style.display = 'block';
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIO PLAYBACK
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.getElementById('audioBtn').addEventListener('click', () => {
+    if (currentWord && currentWord.audio_word_url) {
+        const audio = new Audio(currentWord.audio_word_url);
+        audio.play().catch(err => console.error('Audio playback failed:', err));
+    }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHOW ANSWER
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.getElementById('showAnswerBtn').addEventListener('click', () => {
+    document.getElementById('answer').classList.add('visible');
+    document.getElementById('ratingButtons').classList.add('visible');
+    document.getElementById('showAnswerBtn').style.display = 'none';
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RATING (SM-2 ALGORITHM)
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.querySelectorAll('.rating-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        const rating = parseInt(e.currentTarget.dataset.rating);
+        await updateProgress(rating);
+        
+        currentWordIndex++;
+        showNextWord();
+    });
+});
+
+async function updateProgress(quality) {
+    const wordId = currentWord.id;
+    
+    // Get current progress
+    const { data: existingProgress } = await supabase
+        .from('progress')
+        .select('*')
+        .eq('user_id', currentUser)
+        .eq('word_id', wordId)
+        .single();
+    
+    let interval = 1;
+    let easeFactor = 2.5;
+    let repetitions = 0;
+    
+    if (existingProgress) {
+        interval = existingProgress.interval_days;
+        easeFactor = existingProgress.ease_factor;
+        repetitions = existingProgress.repetitions;
+    }
+    
+    // SM-2 Algorithm
+    if (quality >= 3) {
+        if (repetitions === 0) {
+            interval = 1;
+        } else if (repetitions === 1) {
+            interval = 6;
+        } else {
+            interval = Math.round(interval * easeFactor);
+        }
+        repetitions++;
+    } else {
+        repetitions = 0;
+        interval = 1;
+    }
+    
+    easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+    if (easeFactor < 1.3) easeFactor = 1.3;
+    
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + interval);
+    
+    // Upsert progress
+    const { error } = await supabase
+        .from('progress')
+        .upsert({
+            user_id: currentUser,
+            word_id: wordId,
+            interval_days: interval,
+            ease_factor: easeFactor,
+            repetitions: repetitions,
+            due_date: dueDate.toISOString().split('T')[0]
+        }, {
+            onConflict: 'user_id,word_id'
+        });
+    
+    if (error) {
+        console.error('Error updating progress:', error);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPLETION & NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showCompletion() {
+    document.getElementById('flashcard').style.display = 'none';
+    document.getElementById('completion').classList.add('visible');
+}
+
+document.getElementById('backBtn').addEventListener('click', () => {
+    document.getElementById('flashcardContainer').classList.remove('active');
+    document.getElementById('categories').style.display = 'grid';
+    document.getElementById('userSelect').style.display = 'flex';
+    loadCategoryStats();
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('flashcard').style.display = 'flex';
+    document.getElementById('completion').classList.remove('visible');
+    document.getElementById('flashcardContainer').classList.remove('active');
+    document.getElementById('categories').style.display = 'grid';
+    document.getElementById('userSelect').style.display = 'flex';
+    loadCategoryStats();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Load initial stats (will show 0 until user is selected)
+loadCategoryStats();
 </script>
+
 </body>
 </html>
