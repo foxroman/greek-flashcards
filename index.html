@@ -546,8 +546,8 @@
 const SUPABASE_URL = 'https://ykqpuaulgqymcpmtiuoc.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcXB1YXVsZ3F5bWNwbXRpdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTMwNjksImV4cCI6MjA4ODIyOTA2OX0.BCyRLu4af1IKpNPUmJX8F0m0gEyrvlsHEKw3jWvcIUM';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+const { createClient } = window.supabase;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ═══════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════
