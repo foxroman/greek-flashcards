@@ -181,7 +181,10 @@
         .r-btn.r-hard   { border-color: #e67e22; color: #e67e22; }
         .r-btn.r-good   { border-color: #27ae60; color: #27ae60; }
         .r-btn.r-easy   { border-color: #8e44ad; color: #8e44ad; }
-        .r-btn:hover { background: currentColor; color: white; }
+        .r-btn.r-again:hover { background: #e74c3c; color: white; }
+        .r-btn.r-hard:hover  { background: #e67e22; color: white; }
+        .r-btn.r-good:hover  { background: #27ae60; color: white; }
+        .r-btn.r-easy:hover  { background: #8e44ad; color: white; }
 
         /* ── DONE ── */
         .done-box {
@@ -327,6 +330,7 @@ let queue      = [];
 let qIdx       = 0;
 let graduated  = 0;
 let reviewed   = 0;
+let postponed  = 0;
 let totalCards = 0;
 let currentCat = '';
 
@@ -441,7 +445,8 @@ function renderCats() {
         for (const w of words) {
             const p = progress[w.id];
             if (!p) nNew++;
-            else if (p.interval_days === 0) nLearn++;
+            else if (p.interval_days === 0 && p.due_date <= today) nLearn++;
+            else if (p.interval_days === 0 && p.due_date > today) nDone++; // отложенные learning
             else if (p.due_date <= today) nDue++;
             else nDone++;
         }
@@ -477,12 +482,12 @@ function startCat(cat) {
     const today = todayStr();
     const words = allWords.filter(w => w.category === cat);
 
-    queue = []; graduated = 0; reviewed = 0; qIdx = 0;
+    queue = []; graduated = 0; reviewed = 0; postponed = 0; qIdx = 0;
 
-    // 1) Learning (interval_days = 0) — всегда, без лимита
+    // 1) Learning (interval_days = 0, due_date <= today) — без лимита
     for (const w of words) {
         const p = progress[w.id];
-        if (p && p.interval_days === 0) {
+        if (p && p.interval_days === 0 && p.due_date <= today) {
             queue.push({ word: w, phase: 'learning', reps: p.repetitions, tries: 0 });
         }
     }
@@ -525,7 +530,9 @@ function showCard() {
     if (qIdx >= queue.length) {
         show('done');
         document.getElementById('done-text').textContent = 'Сессия завершена!';
-        document.getElementById('done-stats').textContent = `Выучено новых: ${graduated} · Повторено: ${reviewed}`;
+        document.getElementById('done-stats').textContent =
+            `Выучено новых: ${graduated} · Повторено: ${reviewed}` +
+            (postponed > 0 ? ` · Отложено: ${postponed}` : '');
         return;
     }
 
@@ -558,7 +565,7 @@ function showCard() {
     document.getElementById('fc-info').innerHTML =
         `<span class="phase-badge ${css[item.phase]}">${labels[item.phase]}</span> ${qIdx + 1}/${queue.length}`;
 
-    const pct = totalCards > 0 ? ((graduated + reviewed) / totalCards) * 100 : 0;
+    const pct = totalCards > 0 ? ((graduated + reviewed + postponed) / totalCards) * 100 : 0;
     document.getElementById('pbar').style.width = Math.min(pct, 100) + '%';
 }
 
@@ -593,7 +600,10 @@ function playAudio() {
 // ══════════════════════════════════════════════════════════════════════════════
 // ANSWER — Anki-like core
 // ══════════════════════════════════════════════════════════════════════════════
+let answering = false;
 async function answer(grade) {
+    if (answering) return;
+    answering = true;
     const item = queue[qIdx];
     item.tries++;
 
@@ -602,6 +612,7 @@ async function answer(grade) {
     } else {
         await doReview(item, grade);
     }
+    answering = false;
     showCard();
 }
 
@@ -617,6 +628,7 @@ async function doLearning(item, grade) {
         // Защита: 4+ попыток → отложить до завтра
         if (item.tries >= 4) {
             await saveCard(w.id, { interval_days: 0, ease_factor: ef, repetitions: 0, due_date: futureDate(1) });
+            postponed++;
             toast(`${w.greek} — отложено до завтра`);
             queue.splice(qIdx, 1);
             return;
@@ -629,7 +641,7 @@ async function doLearning(item, grade) {
     }
 
     if (grade === 'easy') {
-        await saveCard(w.id, { interval_days: 4, ease_factor: 2.5, repetitions: 1, due_date: futureDate(4) });
+        await saveCard(w.id, { interval_days: 4, ease_factor: ef, repetitions: 1, due_date: futureDate(4) });
         graduated++;
         toast(`${w.greek} ⚡ выучено!`);
         queue.splice(qIdx, 1);
@@ -641,7 +653,7 @@ async function doLearning(item, grade) {
     item.phase = 'learning';
 
     if (item.reps >= 2) {
-        await saveCard(w.id, { interval_days: 1, ease_factor: 2.5, repetitions: 1, due_date: futureDate(1) });
+        await saveCard(w.id, { interval_days: 1, ease_factor: ef, repetitions: 1, due_date: futureDate(1) });
         graduated++;
         toast(`${w.greek} ✓ выучено!`);
         queue.splice(qIdx, 1);
@@ -675,6 +687,7 @@ async function doReview(item, grade) {
     if (grade === 'hard') {
         iv = Math.max(1, Math.round(iv * 1.2));
         ef = Math.max(1.3, ef - 0.15);
+        rp++;
     } else if (grade === 'good') {
         if (rp === 0) iv = 1;
         else if (rp === 1) iv = 6;
