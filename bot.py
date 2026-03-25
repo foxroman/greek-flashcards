@@ -136,64 +136,101 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🇬🇷 *Greek Flashcards Bot*\n\n"
         "Команды:\n"
-        "/add — добавить слово\n"
+        "/add — добавить одно или несколько слов\n"
         "/list — список слов от учителя\n"
         "/delete — удалить слово\n\n"
-        "*Формат /add:*\n"
-        "`/add σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.`",
+        "*Одно слово:*\n"
+        "`/add σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.`\n\n"
+        "*Несколько слов (каждое на новой строке):*\n"
+        "`/add\n"
+        "σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.\n"
+        "γάτος | кот | gátos | Ο γάτος μου. | Мой кот.`",
         parse_mode="Markdown"
     )
 
 
+async def add_single_word(greek, ru, translit, phrase, phrase_ru) -> str:
+    """Добавить одно слово, вернуть строку с результатом"""
+    word_id = get_next_word_id()
+
+    audio_word_url = None
+    audio_data = get_forvo_audio(greek)
+    if audio_data:
+        try:
+            audio_word_url = upload_to_storage("audio", f"{word_id}.mp3", audio_data, "audio/mpeg")
+        except Exception as e:
+            logger.error(f"Audio upload failed: {e}")
+
+    insert_word(word_id, greek, ru, translit, phrase, phrase_ru, audio_word_url)
+
+    audio_status = "🔊✓" if audio_word_url else "🔇"
+    return f"{audio_status} `{word_id}` {greek} — {ru}"
+
+
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Формат: /add греческое | русское | транслит | фраза | перевод_фразы
+    Одно слово:   /add σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.
+    Несколько:    /add
+                  σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.
+                  γάτος | кот | gátos | Ο γάτος μου. | Мой кот.
     """
-    text = " ".join(context.args)
-    parts = [p.strip() for p in text.split("|")]
+    # Собираем весь текст сообщения после /add
+    full_text = update.message.text.partition("/add")[2].strip()
 
-    if len(parts) != 5:
+    # Разбиваем на строки, фильтруем пустые
+    lines = [l.strip() for l in full_text.split("\n") if l.strip()]
+
+    if not lines:
         await update.message.reply_text(
-            "❌ Нужно 5 частей через |:\n"
-            "`/add σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.`",
+            "❌ Формат:\n"
+            "`/add σπίτι | дом | spiti | Πάω σπίτι. | Иду домой.`\n\n"
+            "Или несколько слов — каждое на новой строке после /add",
             parse_mode="Markdown"
         )
         return
 
-    greek, ru, translit, phrase, phrase_ru = parts
-    word_id = get_next_word_id()
-
-    await update.message.reply_text(f"⏳ Создаю {word_id}: {greek}...")
-
-    # 1. Аудио через Forvo
-    audio_word_url = None
-    audio_data = get_forvo_audio(greek)
-
-    if audio_data:
-        try:
-            audio_word_url = upload_to_storage(
-                "audio", f"{word_id}.mp3", audio_data, "audio/mpeg"
+    # Валидируем все строки сначала
+    parsed = []
+    for i, line in enumerate(lines, 1):
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) != 5:
+            await update.message.reply_text(
+                f"❌ Строка {i} неверного формата:\n`{line}`\n\nНужно 5 частей через |",
+                parse_mode="Markdown"
             )
-            logger.info(f"✓ Audio uploaded: {word_id}.mp3")
-        except Exception as e:
-            logger.error(f"Audio upload failed: {e}")
+            return
+        parsed.append(parts)
 
-    # 2. Сохраняем в БД
-    try:
-        insert_word(word_id, greek, ru, translit, phrase, phrase_ru, audio_word_url)
-    except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка сохранения: {e}")
+    # Если одно слово
+    if len(parsed) == 1:
+        greek, ru, translit, phrase, phrase_ru = parsed[0]
+        await update.message.reply_text(f"⏳ Добавляю: {greek}...")
+        try:
+            result = await add_single_word(greek, ru, translit, phrase, phrase_ru)
+            await update.message.reply_text(f"✅ {result}", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ошибка: {e}")
         return
 
-    # 3. Ответ
-    status_lines = [f"✅ Слово *{word_id}* добавлено!\n"]
-    status_lines.append(f"🇬🇷 {greek} ({translit})")
-    status_lines.append(f"🇷🇺 {ru}")
-    status_lines.append(f"💬 _{phrase}_")
-    status_lines.append(f"📝 {phrase_ru}")
-    status_lines.append(f"\n🔊 Аудио: {'✓' if audio_word_url else 'нет (слово не найдено на Forvo)'}")
+    # Если несколько слов
+    await update.message.reply_text(f"⏳ Добавляю {len(parsed)} слов...")
+    results = []
+    errors = []
 
-    await update.message.reply_text("\n".join(status_lines), parse_mode="Markdown")
+    for greek, ru, translit, phrase, phrase_ru in parsed:
+        try:
+            result = await add_single_word(greek, ru, translit, phrase, phrase_ru)
+            results.append(result)
+        except Exception as e:
+            errors.append(f"❌ {greek}: {e}")
+
+    summary = [f"✅ Добавлено {len(results)} из {len(parsed)}:\n"]
+    summary.extend(results)
+    if errors:
+        summary.append("\n*Ошибки:*")
+        summary.extend(errors)
+
+    await update.message.reply_text("\n".join(summary), parse_mode="Markdown")
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
