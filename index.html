@@ -4,645 +4,699 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Greek Flashcards — Учим греческий</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --aegean-blue: #0077BE;
+            --aegean: #0077BE;
             --mediterranean: #1E90FF;
-            --sunset-orange: #FF6B35;
-            --olive-green: #6B8E23;
-            --marble-white: #F8F9FA;
-            --stone-gray: #2C3E50;
-            --gold-accent: #D4AF37;
-            --text-dark: #1a1a1a;
-            --bg-light: #FEFEFE;
+            --orange: #FF6B35;
+            --olive: #6B8E23;
+            --marble: #F8F9FA;
+            --stone: #2C3E50;
+            --gold: #D4AF37;
+            --text: #1a1a1a;
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'IBM Plex Sans', sans-serif;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: var(--text-dark);
+            color: var(--text);
             min-height: 100vh;
             padding: 20px;
         }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* ── LOADING ── */
+        #loading {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 80vh; gap: 16px;
+        }
+        .spinner {
+            width: 48px; height: 48px; border: 4px solid #ddd;
+            border-top-color: var(--aegean); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading p { color: var(--stone); font-size: 1.1em; }
+
+        /* ── HEADER ── */
         .header {
-            text-align: center;
-            padding: 40px 20px;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-            margin-bottom: 40px;
-            position: relative;
-            overflow: hidden;
+            text-align: center; padding: 40px 20px; background: white;
+            border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            margin-bottom: 40px; position: relative; overflow: hidden;
         }
         .header::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 6px;
-            background: linear-gradient(90deg, var(--aegean-blue) 0%, var(--mediterranean) 50%, var(--sunset-orange) 100%);
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px;
+            background: linear-gradient(90deg, var(--aegean), var(--mediterranean), var(--orange));
         }
         .header h1 {
-            font-family: 'Noto Serif', serif;
-            font-size: 3.5em;
-            font-weight: 700;
-            color: var(--aegean-blue);
-            margin-bottom: 10px;
-            letter-spacing: -1px;
+            font-family: 'Cormorant Garamond', serif; font-size: 3.2em;
+            font-weight: 700; color: var(--aegean); margin-bottom: 8px; letter-spacing: -1px;
         }
-        .header p { font-size: 1.1em; color: var(--stone-gray); opacity: 0.8; }
-        .user-select {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            margin-bottom: 40px;
-            flex-wrap: wrap;
+        .header p { font-size: 1.05em; color: var(--stone); opacity: 0.8; }
+        .header-meta {
+            display: flex; justify-content: center; align-items: center;
+            gap: 16px; margin-top: 14px; font-size: 0.95em; color: var(--stone);
         }
+        .user-badge { background: var(--aegean); color: white; padding: 4px 14px; border-radius: 20px; font-weight: 600; }
+        .logout-link { color: var(--orange); cursor: pointer; text-decoration: underline; font-size: 0.9em; }
+        .logout-link:hover { opacity: 0.7; }
+
+        /* ── USER SELECT ── */
+        .user-select { display: flex; gap: 20px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap; }
         .user-btn {
-            padding: 15px 40px;
-            font-size: 1.1em;
-            font-weight: 600;
-            border: 3px solid var(--aegean-blue);
-            background: white;
-            color: var(--aegean-blue);
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: 'Inter', sans-serif;
+            padding: 15px 40px; font-size: 1.1em; font-weight: 600;
+            border: 3px solid var(--aegean); background: white; color: var(--aegean);
+            border-radius: 50px; cursor: pointer; transition: all 0.3s; font-family: inherit;
         }
         .user-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,119,190,0.2); }
-        .user-btn.active { background: var(--aegean-blue); color: white; transform: scale(1.05); }
-        .new-words-select {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            justify-content: center;
-            margin-bottom: 30px;
+
+        /* ── LIMIT SELECT ── */
+        .limit-select { display: flex; gap: 12px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; align-items: center; }
+        .limit-label { font-size: 0.95em; color: var(--stone); font-weight: 500; }
+        .limit-btn {
+            padding: 8px 20px; font-size: 0.95em; font-weight: 600;
+            border: 2px solid #ccc; background: white; color: var(--stone);
+            border-radius: 25px; cursor: pointer; transition: all 0.2s; font-family: inherit;
         }
-        .new-words-label { font-size: 1em; color: var(--stone-gray); font-weight: 500; }
-        .new-words-btn {
-            padding: 8px 22px;
-            font-size: 1em; font-weight: 600;
-            border: 2px solid #ccc;
-            background: white; color: #666;
-            border-radius: 50px; cursor: pointer;
-            transition: all 0.2s;
-            font-family: 'Inter', sans-serif;
-        }
-        .new-words-btn:hover { border-color: var(--aegean-blue); color: var(--aegean-blue); }
-        .new-words-btn.active { background: var(--aegean-blue); color: white; border-color: var(--aegean-blue); }
+        .limit-btn:hover { border-color: var(--aegean); color: var(--aegean); }
+        .limit-btn.active { background: var(--aegean); color: white; border-color: var(--aegean); }
+
+        /* ── CATEGORIES ── */
         .categories {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
-            max-width: 1200px;
-            margin: 0 auto 40px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 25px; max-width: 1100px; margin: 0 auto 40px;
         }
-        .category-card {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            border: 2px solid transparent;
-            position: relative;
-            overflow: hidden;
+        .cat-card {
+            background: white; border-radius: 16px; padding: 28px; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 2px solid transparent; position: relative; overflow: hidden;
         }
-        .category-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 4px;
-            background: var(--accent);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
+        .cat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: var(--accent); transform: scaleX(0); transition: transform 0.3s ease;
         }
-        .category-card:hover::before { transform: scaleX(1); }
-        .category-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-            border-color: var(--accent);
-        }
-        .category-card.verbs   { --accent: var(--aegean-blue); }
-        .category-card.nouns   { --accent: var(--olive-green); }
-        .category-card.numbers { --accent: var(--sunset-orange); }
-        .category-card.teacher { --accent: var(--gold-accent); }
-        .category-icon { font-size: 3em; margin-bottom: 15px; }
-        .category-title {
-            font-family: 'Noto Serif', serif;
-            font-size: 1.8em; font-weight: 700;
-            color: var(--text-dark); margin-bottom: 10px;
-        }
-        .category-count { font-size: 1.1em; color: #666; margin-bottom: 15px; }
-        .category-progress {
-            width: 100%; height: 8px;
-            background: #E8E8E8; border-radius: 10px; overflow: hidden; margin-top: 15px;
-        }
-        .category-progress-bar {
-            height: 100%; background: var(--accent);
-            border-radius: 10px; transition: width 0.5s ease;
-        }
-        .flashcard-container { max-width: 700px; margin: 0 auto; display: none; }
-        .flashcard-container.active { display: block; animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .progress-info {
-            background: white; padding: 20px; border-radius: 12px;
-            margin-bottom: 25px; display: flex;
-            justify-content: space-between; align-items: center;
+        .cat-card:hover::before { transform: scaleX(1); }
+        .cat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.12); border-color: var(--accent); }
+        .cat-card.verbs   { --accent: var(--aegean); }
+        .cat-card.nouns   { --accent: var(--olive); }
+        .cat-card.numbers { --accent: var(--orange); }
+        .cat-card.teacher { --accent: var(--gold); }
+        .cat-emoji { font-size: 2.4em; margin-bottom: 12px; }
+        .cat-name { font-family: 'Cormorant Garamond', serif; font-size: 1.7em; font-weight: 700; color: var(--stone); margin-bottom: 6px; }
+        .cat-stats { font-size: 0.9em; color: #888; line-height: 1.6; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.82em; font-weight: 600; margin-left: 4px; }
+        .badge-due  { background: rgba(255,107,53,0.15); color: var(--orange); }
+        .badge-done { background: rgba(107,142,35,0.15); color: var(--olive); }
+        .badge-new  { background: rgba(0,119,190,0.12); color: var(--aegean); }
+
+        /* ── FLASHCARD VIEW ── */
+        .fc-container { max-width: 600px; margin: 0 auto; }
+        .fc-top {
+            background: white; padding: 18px 20px; border-radius: 12px; margin-bottom: 20px;
+            display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        .progress-info span { font-size: 1.1em; color: var(--stone-gray); }
         .back-btn {
-            padding: 10px 25px; background: var(--marble-white);
-            border: none; border-radius: 8px; cursor: pointer;
-            font-weight: 600; transition: all 0.2s;
+            padding: 8px 22px; background: var(--marble); border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 600; transition: all 0.2s; font-family: inherit; font-size: 0.95em;
         }
-        .back-btn:hover { background: #e0e0e0; transform: translateX(-3px); }
-        .flashcard {
-            background: white; border-radius: 20px;
-            padding: 60px 40px; min-height: 400px;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            position: relative;
+        .back-btn:hover { background: #e0e0e0; }
+        .fc-top-info { font-size: 1em; color: var(--stone); }
+        .phase-badge { font-size: 0.78em; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
+        .phase-new      { background: #e0f0ff; color: var(--aegean); }
+        .phase-learning { background: #fff3e0; color: #e65100; }
+        .phase-review   { background: #e8f5e9; color: #2e7d32; }
+
+        .progress-wrap { height: 6px; background: #e0e0e0; border-radius: 3px; margin-bottom: 22px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; width: 0%; background: linear-gradient(90deg, var(--aegean), var(--mediterranean)); }
+
+        /* ── CARD ── */
+        .card {
+            background: white; border-radius: 20px; padding: 55px 35px; min-height: 380px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1); cursor: pointer; position: relative;
+            transition: transform 0.3s ease;
         }
-        .word-greek {
-            font-family: 'Noto Serif', serif;
-            font-size: 4em; font-weight: 700;
-            color: var(--aegean-blue); margin-bottom: 20px; text-align: center;
-            letter-spacing: 0.05em;
-            text-transform: capitalize;
-        }
-        .word-translit { font-size: 1.5em; color: #888; margin-bottom: 30px; font-style: italic; font-family: 'Noto Serif', serif; }
+        .card:hover { transform: translateY(-3px); }
+        .card.flipped { cursor: default; }
+        .card.flipped:hover { transform: none; }
+        .greek { font-family: 'Cormorant Garamond', serif; font-size: 3.8em; font-weight: 700; color: var(--aegean); margin-bottom: 16px; text-align: center; }
+        .translit { font-size: 1.4em; color: #888; margin-bottom: 25px; font-style: italic; }
         .audio-btn {
-            width: 70px; height: 70px; border-radius: 50%;
-            background: linear-gradient(135deg, var(--aegean-blue), var(--mediterranean));
-            border: none; color: white; font-size: 2em; cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 20px rgba(0,119,190,0.3); margin-bottom: 30px;
+            width: 65px; height: 65px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--aegean), var(--mediterranean));
+            border: none; color: white; font-size: 1.8em; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: 0 8px 20px rgba(0,119,190,0.3); margin-bottom: 25px;
         }
-        .audio-btn:hover { transform: scale(1.1); box-shadow: 0 12px 30px rgba(0,119,190,0.4); }
+        .audio-btn:hover { transform: scale(1.1); }
         .audio-btn:active { transform: scale(0.95); }
-        .show-answer-btn {
-            padding: 15px 50px; font-size: 1.2em;
-            background: var(--sunset-orange); color: white;
-            border: none; border-radius: 50px; cursor: pointer;
-            font-weight: 600; transition: all 0.3s; margin-top: 20px;
+        .hint { font-size: 0.92em; color: #aaa; margin-top: 15px; }
+        .session-count { position: absolute; top: 16px; right: 20px; font-size: 0.78em; color: #bbb; font-weight: 500; }
+
+        /* ── ANSWER ── */
+        .answer { display: none; width: 100%; text-align: center; margin-top: 25px; padding-top: 25px; border-top: 2px solid #f0f0f0; }
+        .answer.visible { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .ru { font-size: 2.1em; font-weight: 700; color: var(--stone); margin-bottom: 18px; }
+        .phrase-block { background: var(--marble); border-radius: 12px; padding: 18px; margin-bottom: 8px; }
+        .phrase-el { font-size: 1.2em; color: var(--aegean); margin-bottom: 6px; font-weight: 500; }
+        .phrase-ru { font-size: 1.05em; color: #666; }
+
+        /* ── RATING (4 buttons) ── */
+        .rating { display: none; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 25px; }
+        .rating.visible { display: grid; }
+        .r-btn {
+            padding: 14px 6px; border: 2px solid #ddd; background: white; border-radius: 12px;
+            cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.2s;
+            text-align: center; font-family: inherit;
         }
-        .show-answer-btn:hover { background: #ff5722; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,107,53,0.3); }
-        .answer { text-align: center; margin-top: 30px; display: none; animation: fadeIn 0.3s ease; }
-        .answer.visible { display: block; }
-        .word-russian { font-size: 2em; font-weight: 600; color: var(--stone-gray); margin-bottom: 20px; }
-        .phrase { font-size: 1.3em; color: var(--text-dark); margin-bottom: 10px; font-style: italic; }
-        .phrase-ru { font-size: 1.1em; color: #666; }
-        .rating-buttons {
-            display: none;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px; margin-top: 30px;
+        .r-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .r-btn.r-again  { border-color: #e74c3c; color: #e74c3c; }
+        .r-btn.r-hard   { border-color: #e67e22; color: #e67e22; }
+        .r-btn.r-good   { border-color: #27ae60; color: #27ae60; }
+        .r-btn.r-easy   { border-color: #8e44ad; color: #8e44ad; }
+        .r-btn:hover { background: currentColor; color: white; }
+
+        /* ── DONE ── */
+        .done-box {
+            text-align: center; padding: 55px 35px; background: white; border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto;
         }
-        .rating-buttons.visible { display: grid; }
-        .rating-btn {
-            padding: 12px; border: 2px solid #ddd;
-            background: white; border-radius: 10px; cursor: pointer;
-            font-weight: 600; transition: all 0.2s; text-align: center;
+        .done-box .emoji { font-size: 4em; margin-bottom: 15px; }
+        .done-box h2 { font-family: 'Cormorant Garamond', serif; font-size: 2.4em; color: var(--aegean); margin-bottom: 12px; }
+        .done-box p { color: #666; margin-bottom: 8px; font-size: 1.05em; }
+        .done-stats { font-size: 0.95em; color: #999; margin-bottom: 20px; }
+        .big-btn {
+            padding: 14px 45px; font-size: 1.05em; background: var(--aegean); color: white;
+            border: none; border-radius: 50px; cursor: pointer; font-weight: 600;
+            transition: all 0.3s; font-family: inherit; margin-top: 10px;
         }
-        .rating-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .rating-btn[data-rating="0"] { border-color: #e74c3c; color: #e74c3c; }
-        .rating-btn[data-rating="1"] { border-color: #e67e22; color: #e67e22; }
-        .rating-btn[data-rating="2"] { border-color: #f39c12; color: #f39c12; }
-        .rating-btn[data-rating="3"] { border-color: #f1c40f; color: #f1c40f; }
-        .rating-btn[data-rating="4"] { border-color: #2ecc71; color: #2ecc71; }
-        .rating-btn[data-rating="5"] { border-color: #27ae60; color: #27ae60; }
-        .rating-btn:hover { background: currentColor; color: white; }
-        .completion {
-            text-align: center; padding: 60px 40px;
-            background: white; border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1); display: none;
+        .big-btn:hover { background: #005f99; transform: translateY(-2px); }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(44,62,80,0.95); color: white; padding: 12px 24px;
+            border-radius: 12px; font-size: 0.92em; opacity: 0; transition: opacity 0.3s;
+            pointer-events: none; z-index: 100;
         }
-        .completion.visible { display: block; animation: fadeIn 0.5s ease; }
-        .completion h2 {
-            font-family: 'Noto Serif', serif;
-            font-size: 3em; color: var(--aegean-blue); margin-bottom: 20px;
-        }
-        .completion-emoji { font-size: 5em; margin-bottom: 20px; }
-        .restart-btn {
-            padding: 15px 50px; font-size: 1.2em;
-            background: var(--aegean-blue); color: white;
-            border: none; border-radius: 50px; cursor: pointer;
-            font-weight: 600; margin-top: 20px; transition: all 0.3s;
-        }
-        .restart-btn:hover { background: var(--mediterranean); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,119,190,0.3); }
-        @media (max-width: 768px) {
-            .header h1 { font-size: 2.5em; }
-            .word-greek { font-size: 3em; }
+        .toast.show { opacity: 1; }
+
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            .header h1 { font-size: 2.4em; }
+            .greek { font-size: 2.8em; }
+            .card { padding: 40px 22px; min-height: 340px; }
+            .rating { grid-template-columns: repeat(2, 1fr); }
             .categories { grid-template-columns: 1fr; }
-            .rating-buttons { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>🇬🇷 Ελληνικά</h1>
-    <p>Учим греческий с интервальным повторением</p>
+<!-- LOADING -->
+<div id="loading">
+    <div class="spinner"></div>
+    <p>Загружаю слова...</p>
 </div>
 
-<div class="user-select" id="userSelect">
-    <button class="user-btn" data-user="roman">Роман</button>
-    <button class="user-btn" data-user="olga">Ольга</button>
-</div>
-
-<div class="new-words-select" id="newWordsSelect">
-    <span class="new-words-label">Новых слов в день:</span>
-    <button class="new-words-btn active" data-count="10">10</button>
-    <button class="new-words-btn" data-count="20">20</button>
-    <button class="new-words-btn" data-count="30">30</button>
-</div>
-
-<div class="categories" id="categories">
-    <div class="category-card verbs" data-category="verb">
-        <div class="category-icon">🏃</div>
-        <div class="category-title">Глаголы</div>
-        <div class="category-count"><span id="verb-count">...</span> слов</div>
-        <div class="category-progress">
-            <div class="category-progress-bar" id="verb-progress" style="width: 0%"></div>
-        </div>
+<!-- LOGIN -->
+<div id="login" class="screen">
+    <div class="header">
+        <h1>🇬🇷 Ελληνικά</h1>
+        <p>Учим греческий с интервальным повторением</p>
     </div>
-    <div class="category-card nouns" data-category="noun">
-        <div class="category-icon">📦</div>
-        <div class="category-title">Существительные</div>
-        <div class="category-count"><span id="noun-count">...</span> слов</div>
-        <div class="category-progress">
-            <div class="category-progress-bar" id="noun-progress" style="width: 0%"></div>
-        </div>
-    </div>
-    <div class="category-card numbers" data-category="number">
-        <div class="category-icon">🔢</div>
-        <div class="category-title">Числа</div>
-        <div class="category-count"><span id="number-count">...</span> слов</div>
-        <div class="category-progress">
-            <div class="category-progress-bar" id="number-progress" style="width: 0%"></div>
-        </div>
-    </div>
-    <div class="category-card teacher" data-category="teacher">
-        <div class="category-icon">👨‍🏫</div>
-        <div class="category-title">От учителя</div>
-        <div class="category-count"><span id="teacher-count">...</span> слов</div>
-        <div class="category-progress">
-            <div class="category-progress-bar" id="teacher-progress" style="width: 0%"></div>
-        </div>
+    <div class="user-select">
+        <button class="user-btn" onclick="doLogin('roman')">👤 Роман</button>
+        <button class="user-btn" onclick="doLogin('olga')">👤 Ольга</button>
     </div>
 </div>
 
-<div class="flashcard-container" id="flashcardContainer">
-    <div class="progress-info">
-        <button class="back-btn" id="backBtn">← Назад</button>
-        <span id="progressText">Слово 1 из 10</span>
-    </div>
-    <div class="flashcard" id="flashcard">
-        <div class="word-greek" id="wordGreek"></div>
-        <div class="word-translit" id="wordTranslit"></div>
-        <button class="audio-btn" id="audioBtn">🔊</button>
-        <button class="show-answer-btn" id="showAnswerBtn">Показать перевод</button>
-        <div class="answer" id="answer">
-            <div class="word-russian" id="wordRussian"></div>
-            <div class="phrase" id="wordPhrase"></div>
-            <div class="phrase-ru" id="wordPhraseRu"></div>
-        </div>
-        <div class="rating-buttons" id="ratingButtons">
-            <button class="rating-btn" data-rating="0">0<br>😵</button>
-            <button class="rating-btn" data-rating="1">1<br>😓</button>
-            <button class="rating-btn" data-rating="2">2<br>😕</button>
-            <button class="rating-btn" data-rating="3">3<br>😐</button>
-            <button class="rating-btn" data-rating="4">4<br>🙂</button>
-            <button class="rating-btn" data-rating="5">5<br>🎯</button>
+<!-- CATEGORIES -->
+<div id="menu" class="screen">
+    <div class="header">
+        <h1>🇬🇷 Ελληνικά</h1>
+        <p>Выбери категорию для изучения</p>
+        <div class="header-meta">
+            <span class="user-badge" id="h-user"></span>
+            <span class="logout-link" onclick="doLogout()">Выйти</span>
         </div>
     </div>
-    <div class="completion" id="completion">
-        <div class="completion-emoji">🎉</div>
-        <h2>Отлично!</h2>
-        <p>Вы завершили повторение</p>
-        <button class="restart-btn" id="restartBtn">Вернуться к категориям</button>
+    <div class="limit-select">
+        <span class="limit-label">Новых слов за сессию:</span>
+        <button class="limit-btn" onclick="setLimit(5)">5</button>
+        <button class="limit-btn" onclick="setLimit(10)">10</button>
+        <button class="limit-btn active" onclick="setLimit(15)">15</button>
+        <button class="limit-btn" onclick="setLimit(20)">20</button>
+        <button class="limit-btn" onclick="setLimit(30)">30</button>
+    </div>
+    <div class="categories" id="cats"></div>
+</div>
+
+<!-- FLASHCARD -->
+<div id="study" class="screen">
+    <div class="fc-container">
+        <div class="fc-top">
+            <button class="back-btn" onclick="goMenu()">← Назад</button>
+            <span class="fc-top-info" id="fc-info"></span>
+        </div>
+        <div class="progress-wrap">
+            <div class="progress-fill" id="pbar"></div>
+        </div>
+        <div class="card" id="card" onclick="flip()">
+            <span class="session-count" id="tries"></span>
+            <div class="greek" id="c-el"></div>
+            <div class="translit" id="c-tr"></div>
+            <button class="audio-btn" id="c-audio" onclick="event.stopPropagation(); playAudio()">🔊</button>
+            <div class="hint" id="c-hint">Нажми, чтобы увидеть перевод</div>
+            <div class="answer" id="ans">
+                <div class="ru" id="c-ru"></div>
+                <div class="phrase-block" id="phrase-block">
+                    <div class="phrase-el" id="c-ph-el"></div>
+                    <div class="phrase-ru" id="c-ph-ru"></div>
+                </div>
+            </div>
+        </div>
+        <div class="rating" id="rating">
+            <button class="r-btn r-again" onclick="answer('again')">❌<br><small>Не знаю</small></button>
+            <button class="r-btn r-hard"  onclick="answer('hard')">😕<br><small>Сложно</small></button>
+            <button class="r-btn r-good"  onclick="answer('good')">🙂<br><small>Знаю</small></button>
+            <button class="r-btn r-easy"  onclick="answer('easy')">⚡<br><small>Легко</small></button>
+        </div>
     </div>
 </div>
+
+<!-- DONE -->
+<div id="done" class="screen">
+    <div class="done-box">
+        <div class="emoji">🎉</div>
+        <h2>Молодец!</h2>
+        <p id="done-text">Сессия завершена.</p>
+        <div class="done-stats" id="done-stats"></div>
+        <button class="big-btn" onclick="goMenu()">← К категориям</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// SUPABASE INITIALIZATION — FIXED
-// ═══════════════════════════════════════════════════════
-
-const SUPABASE_URL = 'https://ykqpuaulgqymcpmtiuoc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcXB1YXVsZ3F5bWNwbXRpdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTMwNjksImV4cCI6MjA4ODIyOTA2OX0.BCyRLu4af1IKpNPUmJX8F0m0gEyrvlsHEKw3jWvcIUM';
+// ══════════════════════════════════════════════════════════════════════════════
+// SUPABASE — "db" чтобы не конфликтовать с window.supabase (библиотека)
+// ══════════════════════════════════════════════════════════════════════════════
+const SUPA_URL = 'https://ykqpuaulgqymcpmtiuoc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcXB1YXVsZ3F5bWNwbXRpdW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTMwNjksImV4cCI6MjA4ODIyOTA2OX0.BCyRLu4af1IKpNPUmJX8F0m0gEyrvlsHEKw3jWvcIUM';
 
 const { createClient } = window.supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = createClient(SUPA_URL, SUPA_KEY);
 
-// ═══════════════════════════════════════════════════════
-// GLOBAL STATE
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let userId   = null;
+let allWords = [];
+let progress = {};
+let newLimit = 15;
 
-let currentUser = null;
-let currentCategory = null;
-let wordsQueue = [];
-let currentWordIndex = 0;
-let currentWord = null;
-let newWordsPerDay = 10;
+let queue      = [];
+let qIdx       = 0;
+let graduated  = 0;
+let reviewed   = 0;
+let totalCards = 0;
+let currentCat = '';
 
-// ═══════════════════════════════════════════════════════
-// NEW WORDS PER DAY SELECTOR
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// SCREENS
+// ══════════════════════════════════════════════════════════════════════════════
+function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('loading').style.display = 'none';
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+}
 
-document.querySelectorAll('.new-words-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.new-words-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        newWordsPerDay = parseInt(e.target.dataset.count);
-    });
-});
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+}
 
-// ═══════════════════════════════════════════════════════
-// USER SELECTION
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadWords() {
+    const { data, error } = await db.from('words').select('*').order('id', { ascending: true });
+    if (error) { console.error('loadWords:', error); return; }
+    allWords = data || [];
+}
 
-document.querySelectorAll('.user-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-        currentUser = e.target.dataset.user;
-        document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        await loadCategoryStats();
-    });
-});
-
-// ═══════════════════════════════════════════════════════
-// LOAD CATEGORY STATISTICS
-// ═══════════════════════════════════════════════════════
-
-async function loadCategoryStats() {
-    const categories = ['verb', 'noun', 'number', 'teacher'];
-
-    for (const cat of categories) {
-        const { data: words, error } = await db
-            .from('words')
-            .select('id')
-            .eq('category', cat);
-
-        if (error) {
-            console.error('Error loading ' + cat + ':', error);
-            document.getElementById(cat + '-count').textContent = '?';
-            continue;
-        }
-
-        const total = words ? words.length : 0;
-        document.getElementById(cat + '-count').textContent = total;
-
-        if (currentUser && total > 0) {
-            const { data: progress } = await db
-                .from('progress')
-                .select('word_id')
-                .eq('user_id', currentUser)
-                .in('word_id', words.map(w => w.id));
-
-            const learned = progress ? progress.length : 0;
-            const percent = Math.round((learned / total) * 100);
-            document.getElementById(cat + '-progress').style.width = percent + '%';
-        }
+async function loadProgress() {
+    const { data, error } = await db.from('progress').select('*').eq('user_id', userId);
+    if (error) { console.error('loadProgress:', error); return; }
+    progress = {};
+    for (const r of (data || [])) {
+        progress[r.word_id] = {
+            interval_days: r.interval_days,
+            ease_factor:   r.ease_factor,
+            repetitions:   r.repetitions,
+            due_date:      r.due_date
+        };
     }
 }
 
-// ═══════════════════════════════════════════════════════
-// CATEGORY SELECTION
-// ═══════════════════════════════════════════════════════
+async function saveCard(wordId, p) {
+    progress[wordId] = p;
+    await db.from('progress').upsert({
+        user_id: userId, word_id: wordId,
+        interval_days: p.interval_days, ease_factor: p.ease_factor,
+        repetitions: p.repetitions, due_date: p.due_date
+    }, { onConflict: 'user_id,word_id' });
+}
 
-document.querySelectorAll('.category-card').forEach(card => {
-    card.addEventListener('click', async (e) => {
-        if (!currentUser) {
-            alert('Сначала выберите пользователя!');
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT & AUTH
+// ══════════════════════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadWords();
+    document.getElementById('loading').style.display = 'none';
+    show('login');
+});
+
+async function doLogin(name) {
+    userId = name;
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('login').classList.remove('active');
+    document.querySelector('#loading p').textContent = 'Загружаю прогресс...';
+    await loadProgress();
+    document.getElementById('loading').style.display = 'none';
+    goMenu();
+}
+
+function doLogout() {
+    userId = null; progress = {};
+    show('login');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIMIT
+// ══════════════════════════════════════════════════════════════════════════════
+function setLimit(n) {
+    newLimit = n;
+    document.querySelectorAll('.limit-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.textContent) === n);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MENU
+// ══════════════════════════════════════════════════════════════════════════════
+function goMenu() {
+    show('menu');
+    document.getElementById('h-user').textContent = userId === 'roman' ? '👤 Роман' : '👤 Ольга';
+    renderCats();
+}
+
+function renderCats() {
+    const cats = [
+        { key: 'verb',    emoji: '🏃', name: 'Глаголы',         css: 'verbs' },
+        { key: 'noun',    emoji: '📦', name: 'Существительные', css: 'nouns' },
+        { key: 'number',  emoji: '🔢', name: 'Числа',           css: 'numbers' },
+        { key: 'teacher', emoji: '👨‍🏫', name: 'От учителя',      css: 'teacher' }
+    ];
+    const today = todayStr();
+    const box = document.getElementById('cats');
+    box.innerHTML = '';
+
+    for (const c of cats) {
+        const words = allWords.filter(w => w.category === c.key);
+        if (words.length === 0) continue;
+
+        let nNew = 0, nLearn = 0, nDue = 0, nDone = 0;
+        for (const w of words) {
+            const p = progress[w.id];
+            if (!p) nNew++;
+            else if (p.interval_days === 0) nLearn++;
+            else if (p.due_date <= today) nDue++;
+            else nDone++;
+        }
+
+        const el = document.createElement('div');
+        el.className = `cat-card ${c.css}`;
+        el.onclick = () => startCat(c.key);
+        el.innerHTML = `
+            <div class="cat-emoji">${c.emoji}</div>
+            <div class="cat-name">${c.name}</div>
+            <div class="cat-stats">
+                Всего: ${words.length}
+                ${nDue > 0 ? `<span class="badge badge-due">${nDue} на повтор</span>` : ''}
+                ${nLearn > 0 ? `<span class="badge badge-due">${nLearn} в изучении</span>` : ''}
+                ${nNew > 0 ? `<span class="badge badge-new">${nNew} новых</span>` : ''}
+                ${nDone > 0 ? `<span class="badge badge-done">${nDone} выучено</span>` : ''}
+            </div>`;
+        box.appendChild(el);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function futureDate(days) { const d = new Date(); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// BUILD QUEUE — Anki-like
+// ══════════════════════════════════════════════════════════════════════════════
+function startCat(cat) {
+    currentCat = cat;
+    const today = todayStr();
+    const words = allWords.filter(w => w.category === cat);
+
+    queue = []; graduated = 0; reviewed = 0; qIdx = 0;
+
+    // 1) Learning (interval_days = 0) — всегда, без лимита
+    for (const w of words) {
+        const p = progress[w.id];
+        if (p && p.interval_days === 0) {
+            queue.push({ word: w, phase: 'learning', reps: p.repetitions, tries: 0 });
+        }
+    }
+
+    // 2) Review (interval_days >= 1, due_date <= today)
+    for (const w of words) {
+        const p = progress[w.id];
+        if (p && p.interval_days >= 1 && p.due_date <= today) {
+            queue.push({ word: w, phase: 'review', reps: 0, tries: 0 });
+        }
+    }
+
+    // 3) New — с лимитом
+    let added = 0;
+    for (const w of words) {
+        if (added >= newLimit) break;
+        if (!progress[w.id]) {
+            queue.push({ word: w, phase: 'new', reps: 0, tries: 0 });
+            added++;
+        }
+    }
+
+    totalCards = queue.length;
+
+    if (totalCards === 0) {
+        show('done');
+        document.getElementById('done-text').textContent = 'Нет карточек для изучения.';
+        document.getElementById('done-stats').textContent = 'Все слова выучены или ещё не пришло время повторения.';
+        return;
+    }
+
+    show('study');
+    showCard();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SHOW CARD
+// ══════════════════════════════════════════════════════════════════════════════
+function showCard() {
+    if (qIdx >= queue.length) {
+        show('done');
+        document.getElementById('done-text').textContent = 'Сессия завершена!';
+        document.getElementById('done-stats').textContent = `Выучено новых: ${graduated} · Повторено: ${reviewed}`;
+        return;
+    }
+
+    const item = queue[qIdx];
+    const w = item.word;
+
+    document.getElementById('ans').classList.remove('visible');
+    document.getElementById('rating').classList.remove('visible');
+    document.getElementById('c-hint').style.display = '';
+    document.getElementById('card').classList.remove('flipped');
+
+    document.getElementById('c-el').textContent = w.greek;
+    document.getElementById('c-tr').textContent = w.translit ? `[${w.translit}]` : '';
+    document.getElementById('c-ru').textContent = w.ru;
+
+    const pb = document.getElementById('phrase-block');
+    if (w.phrase && w.phrase_ru) {
+        pb.style.display = '';
+        document.getElementById('c-ph-el').textContent = w.phrase;
+        document.getElementById('c-ph-ru').textContent = w.phrase_ru;
+    } else {
+        pb.style.display = 'none';
+    }
+
+    document.getElementById('c-audio').style.display = w.audio_word_url ? '' : 'none';
+    document.getElementById('tries').textContent = item.tries > 0 ? `попытка ${item.tries}` : '';
+
+    const labels = { new: 'Новое', learning: 'Изучение', review: 'Повтор' };
+    const css    = { new: 'phase-new', learning: 'phase-learning', review: 'phase-review' };
+    document.getElementById('fc-info').innerHTML =
+        `<span class="phase-badge ${css[item.phase]}">${labels[item.phase]}</span> ${qIdx + 1}/${queue.length}`;
+
+    const pct = totalCards > 0 ? ((graduated + reviewed) / totalCards) * 100 : 0;
+    document.getElementById('pbar').style.width = Math.min(pct, 100) + '%';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FLIP & AUDIO
+// ══════════════════════════════════════════════════════════════════════════════
+function flip() {
+    if (document.getElementById('card').classList.contains('flipped')) return;
+    document.getElementById('card').classList.add('flipped');
+    document.getElementById('ans').classList.add('visible');
+    document.getElementById('rating').classList.add('visible');
+    document.getElementById('c-hint').style.display = 'none';
+    playAudio();
+}
+
+let curAudio = null;
+function playAudio() {
+    const item = queue[qIdx];
+    if (!item) return;
+    const url = item.word.audio_word_url;
+    if (!url) {
+        const u = new SpeechSynthesisUtterance(item.word.greek);
+        u.lang = 'el-GR'; u.rate = 0.85;
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+        return;
+    }
+    if (curAudio) curAudio.pause();
+    curAudio = new Audio(url);
+    curAudio.play().catch(() => {});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ANSWER — Anki-like core
+// ══════════════════════════════════════════════════════════════════════════════
+async function answer(grade) {
+    const item = queue[qIdx];
+    item.tries++;
+
+    if (item.phase === 'new' || item.phase === 'learning') {
+        await doLearning(item, grade);
+    } else {
+        await doReview(item, grade);
+    }
+    showCard();
+}
+
+// ── LEARNING / NEW ──────────────────────────────────────────────────────────
+async function doLearning(item, grade) {
+    const w = item.word;
+    const ef = progress[w.id]?.ease_factor || 2.5;
+
+    if (grade === 'again' || grade === 'hard') {
+        item.reps = 0;
+        item.phase = 'learning';
+
+        // Защита: 4+ попыток → отложить до завтра
+        if (item.tries >= 4) {
+            await saveCard(w.id, { interval_days: 0, ease_factor: ef, repetitions: 0, due_date: futureDate(1) });
+            toast(`${w.greek} — отложено до завтра`);
+            queue.splice(qIdx, 1);
             return;
         }
-        currentCategory = e.currentTarget.dataset.category;
-        await startLearning();
+
+        await saveCard(w.id, { interval_days: 0, ease_factor: ef, repetitions: 0, due_date: todayStr() });
+        queue.splice(qIdx, 1);
+        queue.push(item);
+        return;
+    }
+
+    if (grade === 'easy') {
+        await saveCard(w.id, { interval_days: 4, ease_factor: 2.5, repetitions: 1, due_date: futureDate(4) });
+        graduated++;
+        toast(`${w.greek} ⚡ выучено!`);
+        queue.splice(qIdx, 1);
+        return;
+    }
+
+    // grade === 'good'
+    item.reps++;
+    item.phase = 'learning';
+
+    if (item.reps >= 2) {
+        await saveCard(w.id, { interval_days: 1, ease_factor: 2.5, repetitions: 1, due_date: futureDate(1) });
+        graduated++;
+        toast(`${w.greek} ✓ выучено!`);
+        queue.splice(qIdx, 1);
+        return;
+    }
+
+    await saveCard(w.id, { interval_days: 0, ease_factor: ef, repetitions: item.reps, due_date: todayStr() });
+    queue.splice(qIdx, 1);
+    queue.push(item);
+}
+
+// ── REVIEW ──────────────────────────────────────────────────────────────────
+async function doReview(item, grade) {
+    const w = item.word;
+    const p = progress[w.id] || { interval_days: 1, ease_factor: 2.5, repetitions: 1, due_date: todayStr() };
+
+    if (grade === 'again') {
+        item.phase = 'learning';
+        item.reps = 0;
+        item.tries = 0;
+        await saveCard(w.id, { interval_days: 0, ease_factor: Math.max(1.3, p.ease_factor - 0.2), repetitions: 0, due_date: todayStr() });
+        queue.splice(qIdx, 1);
+        queue.push(item);
+        return;
+    }
+
+    let iv = p.interval_days;
+    let ef = p.ease_factor;
+    let rp = p.repetitions;
+
+    if (grade === 'hard') {
+        iv = Math.max(1, Math.round(iv * 1.2));
+        ef = Math.max(1.3, ef - 0.15);
+    } else if (grade === 'good') {
+        if (rp === 0) iv = 1;
+        else if (rp === 1) iv = 6;
+        else iv = Math.round(iv * ef);
+        rp++;
+    } else if (grade === 'easy') {
+        if (rp === 0) iv = 4;
+        else if (rp === 1) iv = 10;
+        else iv = Math.round(iv * ef * 1.3);
+        ef = Math.max(1.3, ef + 0.15);
+        rp++;
+    }
+
+    await saveCard(w.id, {
+        interval_days: iv,
+        ease_factor: Math.round(ef * 100) / 100,
+        repetitions: rp,
+        due_date: futureDate(iv)
     });
-});
-
-// ═══════════════════════════════════════════════════════
-// START LEARNING SESSION
-// ═══════════════════════════════════════════════════════
-
-async function startLearning() {
-    const today = new Date().toISOString().split('T')[0];
-
-    // Все слова категории
-    const { data: allWords, error } = await db
-        .from('words')
-        .select('*')
-        .eq('category', currentCategory);
-
-    if (error || !allWords || allWords.length === 0) {
-        alert('Слова не найдены. Проверьте категорию.');
-        return;
-    }
-
-    const allWordIds = allWords.map(w => w.id);
-
-    // Прогресс пользователя по этой категории
-    const { data: userProgress } = await db
-        .from('progress')
-        .select('word_id, due_date')
-        .eq('user_id', currentUser)
-        .in('word_id', allWordIds);
-
-    const progressMap = new Map((userProgress || []).map(p => [p.word_id, p.due_date]));
-
-    // 1. Слова на повторение (уже изучались, due_date <= сегодня)
-    const dueWords = allWords.filter(w =>
-        progressMap.has(w.id) && progressMap.get(w.id) <= today
-    );
-
-    // 2. Новые слова (ещё ни разу не показывались)
-    const newWords = allWords
-        .filter(w => !progressMap.has(w.id))
-        .slice(0, newWordsPerDay);
-
-    wordsQueue = [...dueWords, ...newWords];
-
-    if (wordsQueue.length === 0) {
-        const totalNew = allWords.filter(w => !progressMap.has(w.id)).length;
-        if (totalNew === 0) {
-            alert('Все слова выучены! Возвращайтесь завтра. 🎉');
-        } else {
-            alert('На сегодня всё готово! Возвращайтесь завтра. 🎉');
-        }
-        return;
-    }
-
-    // Перемешиваем только новые слова, due-слова оставляем в начале
-    const shuffledNew = newWords.sort(() => Math.random() - 0.5);
-    wordsQueue = [...dueWords, ...shuffledNew];
-
-    currentWordIndex = 0;
-
-    document.getElementById('categories').style.display = 'none';
-    document.getElementById('userSelect').style.display = 'none';
-    document.getElementById('newWordsSelect').style.display = 'none';
-    document.getElementById('flashcard').style.display = 'flex';
-    document.getElementById('completion').classList.remove('visible');
-    document.getElementById('flashcardContainer').classList.add('active');
-
-    showNextWord();
+    reviewed++;
+    qIdx++;
 }
-
-// ═══════════════════════════════════════════════════════
-// SHOW NEXT WORD
-// ═══════════════════════════════════════════════════════
-
-function showNextWord() {
-    if (currentWordIndex >= wordsQueue.length) {
-        showCompletion();
-        return;
-    }
-
-    currentWord = wordsQueue[currentWordIndex];
-
-    document.getElementById('progressText').textContent =
-        'Слово ' + (currentWordIndex + 1) + ' из ' + wordsQueue.length;
-
-    document.getElementById('wordGreek').textContent = currentWord.greek;
-    document.getElementById('wordTranslit').textContent = currentWord.translit || '';
-    document.getElementById('wordRussian').textContent = currentWord.ru;
-
-    if (currentWord.phrase && currentWord.category !== 'number') {
-        document.getElementById('wordPhrase').textContent = currentWord.phrase;
-        document.getElementById('wordPhraseRu').textContent = currentWord.phrase_ru || '';
-        document.getElementById('wordPhrase').style.display = 'block';
-        document.getElementById('wordPhraseRu').style.display = 'block';
-    } else {
-        document.getElementById('wordPhrase').style.display = 'none';
-        document.getElementById('wordPhraseRu').style.display = 'none';
-    }
-
-    document.getElementById('answer').classList.remove('visible');
-    document.getElementById('ratingButtons').classList.remove('visible');
-    document.getElementById('showAnswerBtn').style.display = 'block';
-
-    // Автовоспроизведение аудио через 300мс (небольшая задержка для UX)
-    if (currentWord.audio_word_url) {
-        setTimeout(() => {
-            new Audio(currentWord.audio_word_url).play()
-                .catch(() => {}); // тихо игнорируем если браузер блокирует
-        }, 300);
-    }
-}
-
-// ═══════════════════════════════════════════════════════
-// AUDIO PLAYBACK
-// ═══════════════════════════════════════════════════════
-
-document.getElementById('audioBtn').addEventListener('click', () => {
-    if (currentWord && currentWord.audio_word_url) {
-        const audio = new Audio(currentWord.audio_word_url);
-        audio.play().catch(err => console.error('Audio error:', err));
-    }
-});
-
-// ═══════════════════════════════════════════════════════
-// SHOW ANSWER
-// ═══════════════════════════════════════════════════════
-
-document.getElementById('showAnswerBtn').addEventListener('click', () => {
-    document.getElementById('answer').classList.add('visible');
-    document.getElementById('ratingButtons').classList.add('visible');
-    document.getElementById('showAnswerBtn').style.display = 'none';
-});
-
-// ═══════════════════════════════════════════════════════
-// RATING (SM-2 ALGORITHM)
-// ═══════════════════════════════════════════════════════
-
-document.querySelectorAll('.rating-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-        const rating = parseInt(e.currentTarget.dataset.rating);
-        await updateProgress(rating);
-        currentWordIndex++;
-        showNextWord();
-    });
-});
-
-async function updateProgress(quality) {
-    const wordId = currentWord.id;
-
-    const { data: existing } = await db
-        .from('progress')
-        .select('*')
-        .eq('user_id', currentUser)
-        .eq('word_id', wordId)
-        .single();
-
-    let interval = 1;
-    let easeFactor = 2.5;
-    let repetitions = 0;
-
-    if (existing) {
-        interval = existing.interval_days;
-        easeFactor = existing.ease_factor;
-        repetitions = existing.repetitions;
-    }
-
-    if (quality >= 3) {
-        if (repetitions === 0)      interval = 1;
-        else if (repetitions === 1) interval = 6;
-        else                        interval = Math.round(interval * easeFactor);
-        repetitions++;
-    } else {
-        repetitions = 0;
-        interval = 1;
-    }
-
-    easeFactor += 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
-    if (easeFactor < 1.3) easeFactor = 1.3;
-
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + interval);
-
-    const { error } = await db.from('progress').upsert({
-        user_id: currentUser,
-        word_id: wordId,
-        interval_days: interval,
-        ease_factor: easeFactor,
-        repetitions: repetitions,
-        due_date: dueDate.toISOString().split('T')[0]
-    }, { onConflict: 'user_id,word_id' });
-
-    if (error) console.error('Progress save error:', error);
-}
-
-// ═══════════════════════════════════════════════════════
-// COMPLETION & NAVIGATION
-// ═══════════════════════════════════════════════════════
-
-function showCompletion() {
-    document.getElementById('flashcard').style.display = 'none';
-    document.getElementById('completion').classList.add('visible');
-}
-
-function goToCategories() {
-    document.getElementById('flashcardContainer').classList.remove('active');
-    document.getElementById('flashcard').style.display = 'flex';
-    document.getElementById('completion').classList.remove('visible');
-    document.getElementById('categories').style.display = 'grid';
-    document.getElementById('userSelect').style.display = 'flex';
-    document.getElementById('newWordsSelect').style.display = 'flex';
-    loadCategoryStats();
-}
-
-document.getElementById('backBtn').addEventListener('click', goToCategories);
-document.getElementById('restartBtn').addEventListener('click', goToCategories);
-
-// ═══════════════════════════════════════════════════════
-// INIT — загружаем счётчики сразу
-loadCategoryStats();
 </script>
-
 </body>
 </html>
