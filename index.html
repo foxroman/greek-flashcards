@@ -73,6 +73,25 @@
         }
         .user-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,119,190,0.2); }
         .user-btn.active { background: var(--aegean-blue); color: white; transform: scale(1.05); }
+        .new-words-select {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        .new-words-label { font-size: 1em; color: var(--stone-gray); font-weight: 500; }
+        .new-words-btn {
+            padding: 8px 22px;
+            font-size: 1em; font-weight: 600;
+            border: 2px solid #ccc;
+            background: white; color: #666;
+            border-radius: 50px; cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .new-words-btn:hover { border-color: var(--aegean-blue); color: var(--aegean-blue); }
+        .new-words-btn.active { background: var(--aegean-blue); color: white; border-color: var(--aegean-blue); }
         .categories {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -235,6 +254,13 @@
     <button class="user-btn" data-user="olga">Ольга</button>
 </div>
 
+<div class="new-words-select" id="newWordsSelect">
+    <span class="new-words-label">Новых слов в день:</span>
+    <button class="new-words-btn active" data-count="10">10</button>
+    <button class="new-words-btn" data-count="20">20</button>
+    <button class="new-words-btn" data-count="30">30</button>
+</div>
+
 <div class="categories" id="categories">
     <div class="category-card verbs" data-category="verb">
         <div class="category-icon">🏃</div>
@@ -322,6 +348,19 @@ let currentCategory = null;
 let wordsQueue = [];
 let currentWordIndex = 0;
 let currentWord = null;
+let newWordsPerDay = 10;
+
+// ═══════════════════════════════════════════════════════
+// NEW WORDS PER DAY SELECTOR
+// ═══════════════════════════════════════════════════════
+
+document.querySelectorAll('.new-words-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.new-words-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        newWordsPerDay = parseInt(e.target.dataset.count);
+    });
+});
 
 // ═══════════════════════════════════════════════════════
 // USER SELECTION
@@ -394,12 +433,7 @@ document.querySelectorAll('.category-card').forEach(card => {
 async function startLearning() {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data: dueProgress } = await db
-        .from('progress')
-        .select('word_id')
-        .eq('user_id', currentUser)
-        .lte('due_date', today);
-
+    // Все слова категории
     const { data: allWords, error } = await db
         .from('words')
         .select('*')
@@ -410,30 +444,48 @@ async function startLearning() {
         return;
     }
 
+    const allWordIds = allWords.map(w => w.id);
+
+    // Прогресс пользователя по этой категории
     const { data: userProgress } = await db
         .from('progress')
-        .select('word_id')
+        .select('word_id, due_date')
         .eq('user_id', currentUser)
-        .in('word_id', allWords.map(w => w.id));
+        .in('word_id', allWordIds);
 
-    const dueWordIds = new Set((dueProgress || []).map(p => p.word_id));
-    const progressWordIds = new Set((userProgress || []).map(p => p.word_id));
+    const progressMap = new Map((userProgress || []).map(p => [p.word_id, p.due_date]));
 
-    wordsQueue = [
-        ...allWords.filter(w => dueWordIds.has(w.id)),
-        ...allWords.filter(w => !progressWordIds.has(w.id))
-    ];
+    // 1. Слова на повторение (уже изучались, due_date <= сегодня)
+    const dueWords = allWords.filter(w =>
+        progressMap.has(w.id) && progressMap.get(w.id) <= today
+    );
+
+    // 2. Новые слова (ещё ни разу не показывались)
+    const newWords = allWords
+        .filter(w => !progressMap.has(w.id))
+        .slice(0, newWordsPerDay);
+
+    wordsQueue = [...dueWords, ...newWords];
 
     if (wordsQueue.length === 0) {
-        alert('Все слова выучены! Возвращайтесь завтра. 🎉');
+        const totalNew = allWords.filter(w => !progressMap.has(w.id)).length;
+        if (totalNew === 0) {
+            alert('Все слова выучены! Возвращайтесь завтра. 🎉');
+        } else {
+            alert('На сегодня всё готово! Возвращайтесь завтра. 🎉');
+        }
         return;
     }
 
-    wordsQueue.sort(() => Math.random() - 0.5);
+    // Перемешиваем только новые слова, due-слова оставляем в начале
+    const shuffledNew = newWords.sort(() => Math.random() - 0.5);
+    wordsQueue = [...dueWords, ...shuffledNew];
+
     currentWordIndex = 0;
 
     document.getElementById('categories').style.display = 'none';
     document.getElementById('userSelect').style.display = 'none';
+    document.getElementById('newWordsSelect').style.display = 'none';
     document.getElementById('flashcard').style.display = 'flex';
     document.getElementById('completion').classList.remove('visible');
     document.getElementById('flashcardContainer').classList.add('active');
@@ -580,6 +632,7 @@ function goToCategories() {
     document.getElementById('completion').classList.remove('visible');
     document.getElementById('categories').style.display = 'grid';
     document.getElementById('userSelect').style.display = 'flex';
+    document.getElementById('newWordsSelect').style.display = 'flex';
     loadCategoryStats();
 }
 
