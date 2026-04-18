@@ -1,0 +1,63 @@
+name: Fetch Forvo Audio
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  fetch-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch audio for words without it
+        run: |
+          node -e "
+          const SUPABASE_URL = '${{ secrets.SUPABASE_URL }}';
+          const SUPABASE_KEY = '${{ secrets.SUPABASE_KEY }}';
+          const FORVO_KEY = '${{ secrets.FORVO_KEY }}';
+
+          const supaHeaders = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json'
+          };
+
+          async function run() {
+            const r = await fetch(SUPABASE_URL + '/rest/v1/words?select=id,greek&audio_word_url=is.null&order=id&limit=50', {
+              headers: supaHeaders
+            });
+            const words = await r.json();
+            if (!words || words.length === 0) { console.log('All words have audio!'); return; }
+            console.log('Words without audio: ' + words.length);
+            let ok = 0, fail = 0;
+            for (const w of words) {
+              try {
+                const forvoUrl = 'https://apifree.forvo.com/key/' + FORVO_KEY + '/format/json/action/word-pronunciations/word/' + encodeURIComponent(w.greek) + '/language/el';
+                const fr = await fetch(forvoUrl);
+                if (!fr.ok) { fail++; continue; }
+                const fd = await fr.json();
+                if (!fd.items || fd.items.length === 0) { fail++; console.log('  No audio: ' + w.greek); continue; }
+                const audioR = await fetch(fd.items[0].pathmp3);
+                if (!audioR.ok) { fail++; continue; }
+                const audioBuffer = await audioR.arrayBuffer();
+                const filename = w.id + '.mp3';
+                const uploadR = await fetch(SUPABASE_URL + '/storage/v1/object/audio/' + filename, {
+                  method: 'POST',
+                  headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'audio/mpeg', 'x-upsert': 'true' },
+                  body: Buffer.from(audioBuffer)
+                });
+                if (uploadR.ok || uploadR.status === 200 || uploadR.status === 201) {
+                  const audioUrl = SUPABASE_URL + '/storage/v1/object/public/audio/' + filename;
+                  await fetch(SUPABASE_URL + '/rest/v1/words?id=eq.' + w.id, {
+                    method: 'PATCH', headers: supaHeaders, body: JSON.stringify({ audio_word_url: audioUrl })
+                  });
+                  ok++;
+                  console.log('  OK: ' + w.id + ' - ' + w.greek);
+                } else { fail++; }
+                await new Promise(r => setTimeout(r, 500));
+              } catch (e) { fail++; console.log('  Error: ' + w.greek + ' - ' + e.message); }
+            }
+            console.log('Done! OK: ' + ok + ', Failed: ' + fail);
+          }
+          run().catch(e => { console.error(e); process.exit(1); });
+          "
